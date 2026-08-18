@@ -1,0 +1,51 @@
+{
+  "id": "viral-hook",
+  "name": "Viral Hook",
+  "tagline": "Punchy captions. Cuts that do not blink.",
+  "coverGradient": ["#FF4D6D", "#2B0A12"],
+  "aspect": "9:16",
+  "durationSec": 15,
+  "pace": {
+    "cutMinSec": 0.8,
+    "cutMaxSec": 1.4,
+    "transition": "hardCut"
+  },
+  "captionStyle": {
+    "font": "AvenirNextCondensed-Heavy",
+    "size": 64,
+    "weight": "heavy",
+    "fill": "#FFFFFF",
+    "stroke": "#111111",
+    "highlight": "#FFE14D",
+    "position": "center",
+    "maxWordsPerCard": 5,
+    "animation": "pop"
+  },
+  "titleCard": {
+    "enabled": true,
+    "font": "AvenirNextCondensed-Heavy",
+    "size": 72,
+    "fill": "#FFFFFF",
+    "background": "#00000099",
+    "numbered": false
+  },
+  "colorGrade": {
+    "contrast": 1.18,
+    "saturation": 1.22,
+    "warmth": 0.06,
+    "vignette": 0.28
+  },
+  "music": {
+    "mood": "pulse",
+    "bpm": 128,
+    "duckDb": -11
+  },
+  "footage": {
+    "unsplashQueries": ["urban night neon", "city motion blur", "close up eyes", "crowd street energy"],
+    "kenBurns": true,
+    "zoomPulse": true,
+    "overlayGrain": true
+  },
+  "aiImageStyleSuffix": "cinematic flash photography, high contrast, urban night, punchy color, 35mm",
+  "aiVideoEnabled": false
+}

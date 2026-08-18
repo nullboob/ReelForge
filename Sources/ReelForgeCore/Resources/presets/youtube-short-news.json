@@ -1,0 +1,51 @@
+{
+  "id": "youtube-short-news",
+  "name": "YouTube Short News",
+  "tagline": "Lower-thirds. Tight brief. No fluff.",
+  "coverGradient": ["#FF5A36", "#140805"],
+  "aspect": "9:16",
+  "durationSec": 30,
+  "pace": {
+    "cutMinSec": 1.6,
+    "cutMaxSec": 2.8,
+    "transition": "hardCut"
+  },
+  "captionStyle": {
+    "font": "HelveticaNeue-Medium",
+    "size": 36,
+    "weight": "medium",
+    "fill": "#FFFFFF",
+    "stroke": "#1A0A06",
+    "highlight": "#FFB347",
+    "position": "bottom",
+    "maxWordsPerCard": 8,
+    "animation": "karaoke"
+  },
+  "titleCard": {
+    "enabled": true,
+    "font": "HelveticaNeue-Bold",
+    "size": 44,
+    "fill": "#FFFFFF",
+    "background": "#FF5A36EE",
+    "numbered": false
+  },
+  "colorGrade": {
+    "contrast": 1.1,
+    "saturation": 1.08,
+    "warmth": 0.04,
+    "vignette": 0.18
+  },
+  "music": {
+    "mood": "clean",
+    "bpm": 110,
+    "duckDb": -9
+  },
+  "footage": {
+    "unsplashQueries": ["newsroom desk", "city skyline morning", "press conference empty", "street documentary"],
+    "kenBurns": true,
+    "zoomPulse": false,
+    "overlayGrain": false
+  },
+  "aiImageStyleSuffix": "broadcast documentary still, natural light, newsroom energy, realistic",
+  "aiVideoEnabled": false
+}

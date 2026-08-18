@@ -1,0 +1,51 @@
+{
+  "id": "luxury-brand",
+  "name": "Luxury Brand",
+  "tagline": "Slow. High contrast. Almost no words.",
+  "coverGradient": ["#E8D5B5", "#0E0C0A"],
+  "aspect": "9:16",
+  "durationSec": 30,
+  "pace": {
+    "cutMinSec": 3.8,
+    "cutMaxSec": 6.8,
+    "transition": "fade"
+  },
+  "captionStyle": {
+    "font": "Didot-Bold",
+    "size": 40,
+    "weight": "bold",
+    "fill": "#F3E8D4",
+    "stroke": "#0E0C0A",
+    "highlight": "#E8D5B5",
+    "position": "bottom",
+    "maxWordsPerCard": 5,
+    "animation": "word-by-word"
+  },
+  "titleCard": {
+    "enabled": true,
+    "font": "Didot-Bold",
+    "size": 56,
+    "fill": "#F3E8D4",
+    "background": "#00000055",
+    "numbered": false
+  },
+  "colorGrade": {
+    "contrast": 1.24,
+    "saturation": 0.78,
+    "warmth": 0.08,
+    "vignette": 0.48
+  },
+  "music": {
+    "mood": "cinematic",
+    "bpm": 70,
+    "duckDb": -14
+  },
+  "footage": {
+    "unsplashQueries": ["marble texture gold", "quiet architecture shadow", "fabric close up luxury", "black car detail"],
+    "kenBurns": true,
+    "zoomPulse": false,
+    "overlayGrain": true
+  },
+  "aiImageStyleSuffix": "luxury editorial, chiaroscuro, tactile materials, restrained palette, 85mm",
+  "aiVideoEnabled": false
+}

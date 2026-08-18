@@ -1,0 +1,51 @@
+{
+  "id": "faceless-facts",
+  "name": "Faceless Facts",
+  "tagline": "Bold type. Stock B-roll. Facts that travel.",
+  "coverGradient": ["#7CFFB2", "#0B1610"],
+  "aspect": "9:16",
+  "durationSec": 20,
+  "pace": {
+    "cutMinSec": 1.2,
+    "cutMaxSec": 2.2,
+    "transition": "hardCut"
+  },
+  "captionStyle": {
+    "font": "AvenirNext-Heavy",
+    "size": 58,
+    "weight": "heavy",
+    "fill": "#F4FFF7",
+    "stroke": "#04140A",
+    "highlight": "#7CFFB2",
+    "position": "center",
+    "maxWordsPerCard": 6,
+    "animation": "pop"
+  },
+  "titleCard": {
+    "enabled": true,
+    "font": "AvenirNext-Heavy",
+    "size": 64,
+    "fill": "#7CFFB2",
+    "background": "#04140ACC",
+    "numbered": false
+  },
+  "colorGrade": {
+    "contrast": 1.16,
+    "saturation": 1.1,
+    "warmth": 0.02,
+    "vignette": 0.22
+  },
+  "music": {
+    "mood": "pulse",
+    "bpm": 118,
+    "duckDb": -10
+  },
+  "footage": {
+    "unsplashQueries": ["library books overhead", "city documentary", "science texture", "hands writing notebook"],
+    "kenBurns": true,
+    "zoomPulse": true,
+    "overlayGrain": true
+  },
+  "aiImageStyleSuffix": "editorial documentary still, bold contrast, tactile textures, no faces",
+  "aiVideoEnabled": false
+}

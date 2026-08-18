@@ -1,0 +1,51 @@
+{
+  "id": "tutorial-steps",
+  "name": "Tutorial Steps",
+  "tagline": "Numbered cards. Calm cuts. Teach once.",
+  "coverGradient": ["#6EC8FF", "#0B1520"],
+  "aspect": "9:16",
+  "durationSec": 45,
+  "pace": {
+    "cutMinSec": 2.4,
+    "cutMaxSec": 4.6,
+    "transition": "fade"
+  },
+  "captionStyle": {
+    "font": "AvenirNext-DemiBold",
+    "size": 40,
+    "weight": "demibold",
+    "fill": "#F2F8FF",
+    "stroke": "#0B1520",
+    "highlight": "#6EC8FF",
+    "position": "bottom",
+    "maxWordsPerCard": 8,
+    "animation": "word-by-word"
+  },
+  "titleCard": {
+    "enabled": true,
+    "font": "AvenirNext-Bold",
+    "size": 48,
+    "fill": "#F2F8FF",
+    "background": "#0B1520CC",
+    "numbered": true
+  },
+  "colorGrade": {
+    "contrast": 1.06,
+    "saturation": 1.02,
+    "warmth": -0.02,
+    "vignette": 0.14
+  },
+  "music": {
+    "mood": "clean",
+    "bpm": 96,
+    "duckDb": -11
+  },
+  "footage": {
+    "unsplashQueries": ["notebook desk overhead", "calm workspace", "hands making notes", "soft window study"],
+    "kenBurns": true,
+    "zoomPulse": false,
+    "overlayGrain": false
+  },
+  "aiImageStyleSuffix": "clear instructional still, soft daylight, tidy workspace, readable composition",
+  "aiVideoEnabled": false
+}

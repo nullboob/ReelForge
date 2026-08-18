@@ -1,0 +1,15 @@
+.DS_Store
+.build/
+.swiftpm/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+*.xcuserstate
+.env
+.env.*
+*.mov
+*.mp4
+!Fixtures/**/*.json
+.idea/
+.vscode/

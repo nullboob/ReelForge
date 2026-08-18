@@ -1,0 +1,26 @@
+name: Core tests
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+
+jobs:
+  swift-test:
+    name: ReelForgeCore on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "5.10"
+      - name: Test portable pipeline
+        run: swift test --package-path .
+      - name: Confirm app sources exist
+        run: |
+          test -f project.yml
+          test -f Sources/ReelForgeApp/ReelForgeApp.swift
+          test -f Sources/ReelForgeApp/Pipeline/Director.swift
+          test -d Sources/ReelForgeCore/Resources/presets
+          echo "macOS app sources are present; build them with XcodeGen on macOS 14+."

@@ -1,0 +1,51 @@
+{
+  "id": "cinematic-story",
+  "name": "Cinematic Story",
+  "tagline": "Slow burns. Film grade. A feeling that stays.",
+  "coverGradient": ["#C4A574", "#14110E"],
+  "aspect": "9:16",
+  "durationSec": 45,
+  "pace": {
+    "cutMinSec": 3.2,
+    "cutMaxSec": 6.5,
+    "transition": "fade"
+  },
+  "captionStyle": {
+    "font": "AvenirNext-DemiBold",
+    "size": 42,
+    "weight": "demibold",
+    "fill": "#F6F0E6",
+    "stroke": "#1A140C",
+    "highlight": "#E8C39A",
+    "position": "bottom",
+    "maxWordsPerCard": 8,
+    "animation": "word-by-word"
+  },
+  "titleCard": {
+    "enabled": true,
+    "font": "Didot-Bold",
+    "size": 58,
+    "fill": "#F6F0E6",
+    "background": "#00000066",
+    "numbered": false
+  },
+  "colorGrade": {
+    "contrast": 1.12,
+    "saturation": 0.88,
+    "warmth": 0.16,
+    "vignette": 0.42
+  },
+  "music": {
+    "mood": "cinematic",
+    "bpm": 80,
+    "duckDb": -12
+  },
+  "footage": {
+    "unsplashQueries": ["cinematic landscape dusk", "film still window light", "empty road fog", "close up hands texture"],
+    "kenBurns": true,
+    "zoomPulse": false,
+    "overlayGrain": true
+  },
+  "aiImageStyleSuffix": "anamorphic film still, muted grade, volumetric light, 50mm, shallow depth of field",
+  "aiVideoEnabled": false
+}
