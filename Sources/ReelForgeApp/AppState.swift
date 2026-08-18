@@ -12,8 +12,20 @@ final class AppState: ObservableObject {
     @Published var aspectOverride: AspectRatio?
     @Published var durationOverride: Int?
     @Published var useUnsplash = true
+    @Published var usePexels = true
     @Published var useLocalAI = true
+    @Published var burnCaptions = true
+    @Published var exportSRT = true
     @Published var voiceIdentifier: String?
+    @Published var voiceSpeed: Double = 1.0
+    @Published var beatPause: Double = 0.15
+    @Published var channelType: ChannelType = .facelessFacts
+    @Published var target: VideoTarget = .short
+    @Published var language: ContentLanguage = .english
+    @Published var seriesName: String = ""
+    @Published var batchText: String = ""
+    @Published var batchItems: [BatchItem] = []
+    @Published var channelKit = ChannelKit()
     @Published var footageURLs: [URL] = []
     @Published var voiceoverURL: URL?
     @Published var progress = PipelineProgress.idle
@@ -24,6 +36,7 @@ final class AppState: ObservableObject {
     @Published var showSettings = false
     @Published var localStatus = LocalAIStatus()
     @Published var unsplashConfigured = false
+    @Published var pexelsConfigured = false
     @Published var search = ""
     @Published var player: AVPlayer?
 
@@ -41,12 +54,14 @@ final class AppState: ObservableObject {
     var activePreset: Preset? { selectedPreset ?? presets.first }
 
     var resolvedAspect: AspectRatio {
-        aspectOverride ?? activePreset?.aspect ?? .vertical
+        aspectOverride ?? channelKit.defaultAspect ?? (target == .longForm ? .landscape : activePreset?.aspect) ?? .vertical
     }
 
     var resolvedDuration: Int {
-        durationOverride ?? activePreset?.durationSec ?? 15
+        durationOverride ?? (target == .longForm && (activePreset?.durationSec ?? 30) < 180 ? target.defaultDuration : activePreset?.durationSec) ?? 15
     }
+
+    var publishPack: PublishPack? { project.publishPack }
 
     var canGenerate: Bool {
         !topic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && activePreset != nil && !isGenerating
@@ -54,8 +69,12 @@ final class AppState: ObservableObject {
 
     init() {
         loadPresets()
+        channelKit = ChannelStore.load()
+        applyChannelDefaults()
         refreshStatus()
-        voiceIdentifier = SpeechService.defaultVoice()?.identifier
+        if voiceIdentifier == nil {
+            voiceIdentifier = channelKit.defaultVoice ?? SpeechService.defaultVoice()?.identifier
+        }
     }
 
     func loadPresets() {
@@ -72,6 +91,7 @@ final class AppState: ObservableObject {
 
     func refreshStatus() {
         unsplashConfigured = KeychainStore.unsplashAccessKey != nil
+        pexelsConfigured = KeychainStore.pexelsAPIKey != nil
         Task {
             localStatus = await LocalAIClient.shared.probe()
         }
@@ -106,9 +126,19 @@ final class AppState: ObservableObject {
         next.aspectOverride = aspectOverride
         next.durationOverride = durationOverride
         next.useUnsplash = useUnsplash
+        next.usePexels = usePexels
         next.useLocalAI = useLocalAI
+        next.burnCaptions = burnCaptions
+        next.exportSRT = exportSRT
         next.voiceIdentifier = voiceIdentifier
+        next.voiceSpeed = voiceSpeed
+        next.beatPause = beatPause
+        next.channelType = channelType
+        next.target = target
+        next.language = language
+        next.seriesName = seriesName.isEmpty ? nil : seriesName
         next.name = brief
+        persistChannel()
         project = next
 
         let request = GenerateRequest(
@@ -117,11 +147,21 @@ final class AppState: ObservableObject {
             aspect: resolvedAspect,
             duration: resolvedDuration,
             voiceIdentifier: voiceIdentifier,
+            voiceSpeed: voiceSpeed,
+            beatPause: beatPause,
             voiceoverURL: voiceoverURL,
             footageURLs: footageURLs,
             useUnsplash: useUnsplash,
+            usePexels: usePexels,
             useLocalAI: useLocalAI,
+            burnCaptions: burnCaptions,
+            exportSRT: exportSRT,
             unsplashKey: KeychainStore.unsplashAccessKey,
+            pexelsKey: KeychainStore.pexelsAPIKey,
+            channelType: channelType,
+            target: target,
+            seriesName: seriesName.isEmpty ? nil : seriesName,
+            channel: channelKit,
             project: next
         )
 
@@ -197,5 +237,80 @@ final class AppState: ObservableObject {
         if panel.runModal() == .OK {
             addDroppedURLs(panel.urls)
         }
+    }
+
+    func persistChannel() {
+        ChannelStore.save(channelKit)
+    }
+
+    func applyChannelDefaults() {
+        if selectedPreset == nil || selectedPreset?.id == "viral-hook" {
+            if let match = presets.first(where: { $0.id == channelKit.defaultPresetID }) {
+                selectedPreset = match
+            }
+        }
+        if let aspect = channelKit.defaultAspect {
+            aspectOverride = aspect
+        }
+        if let voice = channelKit.defaultVoice, !voice.isEmpty {
+            voiceIdentifier = voice
+        }
+    }
+
+    func pickChannelLogo() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.png, .jpeg, .heic, .webP]
+        if panel.runModal() == .OK, let url = panel.url {
+            if let relative = ChannelStore.saveLogo(url) {
+                channelKit.logoRelativePath = relative
+                persistChannel()
+            }
+        }
+    }
+
+    func selectChannelType(_ type: ChannelType) {
+        channelType = type
+        if let match = presets.first(where: { $0.id == type.suggestedPresetID }) {
+            selectedPreset = match
+        }
+    }
+
+    func generateBatch() {
+        let topics = batchText
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard topics.count >= 2 else {
+            lastError = "Paste at least two topics to batch."
+            return
+        }
+        batchItems = topics.map { BatchItem(topic: $0) }
+        Task {
+            for index in batchItems.indices {
+                guard !Task.isCancelled else { return }
+                topic = batchItems[index].topic
+                project = Project()
+                batchItems[index].status = .running
+                generate()
+                while isGenerating {
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                }
+                batchItems[index].status = lastError == nil ? .done : .failed
+                batchItems[index].exportURL = exportURL
+            }
+        }
+    }
+}
+
+struct BatchItem: Identifiable, Equatable {
+    var id = UUID()
+    var topic: String
+    var status: Status = .idle
+    var exportURL: URL?
+
+    enum Status: String {
+        case idle, running, done, failed
     }
 }

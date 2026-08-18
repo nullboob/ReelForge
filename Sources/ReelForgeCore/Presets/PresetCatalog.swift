@@ -23,7 +23,13 @@ public enum PresetCatalog {
         "luxury-brand",
         "youtube-short-news",
         "travel-vlog",
-        "tutorial-steps"
+        "tutorial-steps",
+        "listicle",
+        "explainer",
+        "storytime",
+        "motivational",
+        "podcast-clip",
+        "news-roundup"
     ]
 
     public static func load(from directory: URL) throws -> [Preset] {

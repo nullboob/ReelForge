@@ -64,4 +64,4 @@ targets:
         LSApplicationCategoryType: public.app-category.video
         NSHighResolutionCapable: true
         NSPrincipalClass: NSApplication
-        NSLocalNetworkUsageDescription: ReelForge talks to local Ollama, Automatic1111, and other tools running on this Mac.
+        NSLocalNetworkUsageDescription: ReelForge talks to local Ollama, ComfyUI, Kokoro, Piper, Automatic1111, and other tools running on this Mac.

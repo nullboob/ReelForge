@@ -8,6 +8,7 @@ public enum PipelineStep: String, CaseIterable, Codable, Sendable {
     case footage
     case music
     case compose
+    case package
     case export
 
     public var title: String {
@@ -19,6 +20,7 @@ public enum PipelineStep: String, CaseIterable, Codable, Sendable {
         case .footage: return "Footage"
         case .music: return "Music"
         case .compose: return "Compose"
+        case .package: return "Publish pack"
         case .export: return "Export"
         }
     }
@@ -32,6 +34,7 @@ public enum PipelineStep: String, CaseIterable, Codable, Sendable {
         case .footage: return "Collecting B-roll and styled cards"
         case .music: return "Scoring a ducked music bed"
         case .compose: return "Laying the timeline, grade, and transitions"
+        case .package: return "Title, description, chapters, thumbnail, SRT"
         case .export: return "Writing H.264 MP4"
         }
     }

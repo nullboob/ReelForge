@@ -45,6 +45,17 @@ final class ScriptWriterTests: XCTestCase {
         XCTAssertFalse(parsed.fullText.isEmpty)
     }
 
+    func testLongFormGrowsBody() {
+        let script = ScriptWriter.write(
+            topic: "why walking works",
+            presetID: "explainer",
+            durationSec: 180
+        )
+        XCTAssertGreaterThanOrEqual(script.body.count, 4)
+        XCTAssertFalse(script.hook.isEmpty)
+        XCTAssertFalse(script.cta.isEmpty)
+    }
+
     func testOllamaLabeledOutput() {
         let raw = """
         HOOK: This is the open.

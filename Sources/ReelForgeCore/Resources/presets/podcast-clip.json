@@ -1,0 +1,20 @@
+{
+  "id": "podcast-clip",
+  "name": "Podcast Clip",
+  "tagline": "Big captions. One stolen minute.",
+  "coverGradient": ["#B07CFF", "#120816"],
+  "aspect": "9:16",
+  "durationSec": 45,
+  "pace": { "cutMinSec": 1.8, "cutMaxSec": 3.2, "transition": "hardCut" },
+  "captionStyle": {
+    "font": "AvenirNext-Heavy", "size": 56, "weight": "heavy",
+    "fill": "#FFFFFF", "stroke": "#120816", "highlight": "#D7B3FF",
+    "position": "center", "maxWordsPerCard": 5, "animation": "karaoke"
+  },
+  "titleCard": { "enabled": true, "font": "AvenirNext-Heavy", "size": 48, "fill": "#D7B3FF", "background": "#120816CC", "numbered": false },
+  "colorGrade": { "contrast": 1.12, "saturation": 1.05, "warmth": -0.02, "vignette": 0.22 },
+  "music": { "mood": "clean", "bpm": 102, "duckDb": -14 },
+  "footage": { "unsplashQueries": ["microphone close up", "dark studio", "waveform abstract", "headphones desk"], "kenBurns": true, "zoomPulse": false, "overlayGrain": true },
+  "aiImageStyleSuffix": "podcast studio still, moody practicals, microphone detail, no faces",
+  "aiVideoEnabled": false
+}

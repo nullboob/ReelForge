@@ -39,6 +39,8 @@ struct PreviewPane: View {
                         .lineLimit(1)
                 }
             }
+
+            PublishPackView()
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

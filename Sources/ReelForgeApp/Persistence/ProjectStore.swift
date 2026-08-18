@@ -55,8 +55,10 @@ enum ProjectStore {
             .prefix(6)
             .joined(separator: "-")
         let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "")
-        let name = "ReelForge-\(presetID)-\(slug.isEmpty ? "reel" : slug)-\(stamp).mp4"
-        return try moviesDirectory().appendingPathComponent(name)
+        let folderName = "\(presetID)-\(slug.isEmpty ? "reel" : slug)-\(stamp)"
+        let folder = try moviesDirectory().appendingPathComponent(folderName, isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder.appendingPathComponent("\(slug.isEmpty ? "reel" : slug).mp4")
     }
 }
 

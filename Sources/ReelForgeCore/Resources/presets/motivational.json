@@ -1,0 +1,20 @@
+{
+  "id": "motivational",
+  "name": "Motivational",
+  "tagline": "Commentary energy. Smaller first moves.",
+  "coverGradient": ["#FF6B3D", "#140805"],
+  "aspect": "9:16",
+  "durationSec": 30,
+  "pace": { "cutMinSec": 1.1, "cutMaxSec": 2.0, "transition": "hardCut" },
+  "captionStyle": {
+    "font": "AvenirNextCondensed-Heavy", "size": 60, "weight": "heavy",
+    "fill": "#FFFFFF", "stroke": "#140805", "highlight": "#FFB347",
+    "position": "center", "maxWordsPerCard": 5, "animation": "pop"
+  },
+  "titleCard": { "enabled": true, "font": "AvenirNextCondensed-Heavy", "size": 64, "fill": "#FFFFFF", "background": "#140805AA", "numbered": false },
+  "colorGrade": { "contrast": 1.2, "saturation": 1.16, "warmth": 0.12, "vignette": 0.26 },
+  "music": { "mood": "pulse", "bpm": 126, "duckDb": -10 },
+  "footage": { "unsplashQueries": ["sunrise run", "empty gym", "city dawn", "close up shoes"], "kenBurns": true, "zoomPulse": true, "overlayGrain": true },
+  "aiImageStyleSuffix": "high contrast motivational still, dawn light, athletic, no faces",
+  "aiVideoEnabled": false
+}

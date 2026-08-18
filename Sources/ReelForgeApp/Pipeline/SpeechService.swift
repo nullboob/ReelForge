@@ -6,6 +6,12 @@ enum SpeechServiceError: Error {
     case writeFailed
 }
 
+struct VoiceChoice: Identifiable, Hashable {
+    var id: String
+    var name: String
+    var engine: String
+}
+
 struct SpeechService {
     static func preferredVoices() -> [AVSpeechSynthesisVoice] {
         AVSpeechSynthesisVoice.speechVoices()
@@ -23,7 +29,118 @@ struct SpeechService {
         return preferredVoices().first ?? AVSpeechSynthesisVoice(language: "en-US")
     }
 
-    func synthesize(text: String, voiceIdentifier: String?, to url: URL) async throws -> TimeInterval {
+    static func piperAvailable() -> Bool {
+        ["/opt/homebrew/bin/piper", "/usr/local/bin/piper"].contains { FileManager.default.isExecutableFile(atPath: $0) }
+            || which("piper") != nil
+    }
+
+    static func which(_ name: String) -> String? {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/which")
+        task.arguments = [name]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = Pipe()
+        try? task.run()
+        task.waitUntilExit()
+        let path = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let path, FileManager.default.isExecutableFile(atPath: path) { return path }
+        return nil
+    }
+
+    static func allVoices() -> [VoiceChoice] {
+        var items: [VoiceChoice] = [
+            VoiceChoice(id: "kokoro:af_bella", name: "Kokoro · Bella", engine: "Kokoro"),
+            VoiceChoice(id: "kokoro:af_sarah", name: "Kokoro · Sarah", engine: "Kokoro"),
+            VoiceChoice(id: "kokoro:am_adam", name: "Kokoro · Adam", engine: "Kokoro"),
+            VoiceChoice(id: "kokoro:am_michael", name: "Kokoro · Michael", engine: "Kokoro"),
+            VoiceChoice(id: "kokoro:bf_emma", name: "Kokoro · Emma", engine: "Kokoro"),
+            VoiceChoice(id: "piper:default", name: "Piper (local)", engine: "Piper")
+        ]
+        items.append(contentsOf: preferredVoices().prefix(10).map {
+            VoiceChoice(id: $0.identifier, name: "Mac · \($0.name)", engine: "AVSpeech")
+        })
+        return items
+    }
+
+    func synthesize(
+        text: String,
+        voiceIdentifier: String?,
+        speed: Double,
+        to url: URL
+    ) async throws -> (duration: TimeInterval, engine: String) {
+        let wantsKokoro = voiceIdentifier == nil || voiceIdentifier?.hasPrefix("kokoro:") == true
+        let wantsPiper = voiceIdentifier == nil || voiceIdentifier?.hasPrefix("piper:") == true
+        if wantsKokoro {
+            let voice = voiceIdentifier?.hasPrefix("kokoro:") == true
+                ? String(voiceIdentifier!.dropFirst(7))
+                : "af_bella"
+            if let duration = await kokoro(text: text, voice: voice, speed: speed, to: url) {
+                return (duration, "Kokoro")
+            }
+        }
+        if wantsPiper, let duration = piper(text: text, to: url) {
+            return (duration, "Piper")
+        }
+        let appleID = (voiceIdentifier?.hasPrefix("kokoro:") == true || voiceIdentifier?.hasPrefix("piper:") == true)
+            ? nil
+            : voiceIdentifier
+        let duration = try await synthesizeApple(text: text, voiceIdentifier: appleID, speed: speed, to: url)
+        return (duration, "AVSpeech")
+    }
+
+    private func kokoro(text: String, voice: String, speed: Double, to url: URL) async -> TimeInterval? {
+        for raw in ["http://127.0.0.1:8880/v1/audio/speech", "http://127.0.0.1:8880/audio/speech"] {
+            guard let endpoint = URL(string: raw) else { continue }
+            var request = URLRequest(url: endpoint)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 60
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: [
+                "model": "kokoro",
+                "input": text,
+                "voice": voice,
+                "response_format": "wav",
+                "speed": max(0.7, min(1.4, speed))
+            ])
+            guard let (data, response) = try? await URLSession.shared.data(for: request),
+                  let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+                  data.count > 200
+            else { continue }
+            try? data.write(to: url)
+            if FileManager.default.fileExists(atPath: url.path) {
+                return await durationOfAudio(at: url) ?? estimateDuration(text: text)
+            }
+        }
+        return nil
+    }
+
+    private func piper(text: String, to url: URL) -> TimeInterval? {
+        guard let binary = Self.which("piper") ?? ["/opt/homebrew/bin/piper", "/usr/local/bin/piper"].first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else {
+            return nil
+        }
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: binary)
+        task.arguments = ["--output_file", url.path]
+        let input = Pipe()
+        task.standardInput = input
+        task.standardError = Pipe()
+        do {
+            try task.run()
+            input.fileHandleForWriting.write(Data(text.utf8))
+            input.fileHandleForWriting.closeFile()
+            task.waitUntilExit()
+            if task.terminationStatus == 0, FileManager.default.fileExists(atPath: url.path) {
+                return estimateDuration(text: text)
+            }
+        } catch {
+            return nil
+        }
+        return nil
+    }
+
+    func synthesizeApple(text: String, voiceIdentifier: String?, speed: Double, to url: URL) async throws -> TimeInterval {
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { throw SpeechServiceError.emptyUtterance }
 
@@ -33,7 +150,7 @@ struct SpeechService {
         } else {
             utterance.voice = Self.defaultVoice()
         }
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.94
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.94 * Float(max(0.7, min(1.4, speed)))
         utterance.pitchMultiplier = 0.98
         utterance.volume = 1
 

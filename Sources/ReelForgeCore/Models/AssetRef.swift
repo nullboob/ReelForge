@@ -9,12 +9,20 @@ public enum AssetKind: String, Codable, Sendable {
 }
 
 public struct UnsplashAttribution: Codable, Equatable, Sendable {
+    public var source: String
     public var photographer: String
     public var photographerURL: String
     public var photoURL: String
     public var beatID: String
 
-    public init(photographer: String, photographerURL: String, photoURL: String, beatID: String) {
+    public init(
+        source: String = "unsplash",
+        photographer: String,
+        photographerURL: String,
+        photoURL: String,
+        beatID: String
+    ) {
+        self.source = source
         self.photographer = photographer
         self.photographerURL = photographerURL
         self.photoURL = photoURL

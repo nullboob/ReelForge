@@ -7,11 +7,21 @@ struct GenerateRequest: Sendable {
     var aspect: AspectRatio
     var duration: Int
     var voiceIdentifier: String?
+    var voiceSpeed: Double
+    var beatPause: Double
     var voiceoverURL: URL?
     var footageURLs: [URL]
     var useUnsplash: Bool
+    var usePexels: Bool
     var useLocalAI: Bool
+    var burnCaptions: Bool
+    var exportSRT: Bool
     var unsplashKey: String?
+    var pexelsKey: String?
+    var channelType: ChannelType
+    var target: VideoTarget
+    var seriesName: String?
+    var channel: ChannelKit
     var project: Project
 }
 
@@ -56,7 +66,9 @@ final class Director: @unchecked Sendable {
         let (script, scriptWarnings) = await scriptService.write(
             topic: request.topic,
             preset: request.preset,
-            preferOllama: request.useLocalAI
+            preferOllama: request.useLocalAI,
+            durationSec: request.duration,
+            channelType: request.channelType
         )
         project.script = script
         project.warnings.append(contentsOf: scriptWarnings)
@@ -70,6 +82,7 @@ final class Director: @unchecked Sendable {
             preset: request.preset,
             duration: Double(request.duration)
         )
+        storyboard = applyChannelBookends(storyboard, channel: request.channel)
         project.storyboard = storyboard
         completed.append(.storyboard)
         try ProjectStore.save(project)
@@ -87,21 +100,28 @@ final class Director: @unchecked Sendable {
             do {
                 try FileManager.default.copyItem(at: provided, to: voiceURL)
                 voiceDuration = await speechService.durationOfAudio(at: voiceURL) ?? speechService.estimateDuration(text: script.fullText)
+                project.ttsEngine = "Dropped VO"
             } catch {
-                voiceDuration = try await speechService.synthesize(
-                    text: script.fullText,
+                let spoken = try await speechService.synthesize(
+                    text: spokenText(script, pause: request.beatPause),
                     voiceIdentifier: request.voiceIdentifier,
+                    speed: request.voiceSpeed,
                     to: voiceURL
                 )
+                voiceDuration = spoken.duration
+                project.ttsEngine = spoken.engine
                 project.warnings.append("Could not copy the dropped voiceover — synthesized speech instead.")
             }
         } else {
             do {
-                voiceDuration = try await speechService.synthesize(
-                    text: script.fullText,
+                let spoken = try await speechService.synthesize(
+                    text: spokenText(script, pause: request.beatPause),
                     voiceIdentifier: request.voiceIdentifier,
+                    speed: request.voiceSpeed,
                     to: voiceURL
                 )
+                voiceDuration = spoken.duration
+                project.ttsEngine = spoken.engine
             } catch {
                 voiceDuration = speechService.estimateDuration(text: script.fullText)
                 try MusicBedSynthesizer.writeSilence(duration: voiceDuration, to: voiceURL)
@@ -140,7 +160,9 @@ final class Director: @unchecked Sendable {
             workDir: assetsDir,
             localFiles: request.footageURLs,
             unsplashKey: request.unsplashKey,
+            pexelsKey: request.pexelsKey,
             useUnsplash: request.useUnsplash,
+            usePexels: request.usePexels,
             useLocalAI: request.useLocalAI
         ) { detail in
             Task { await emit(.footage, detail, extra: 0.05) }
@@ -184,16 +206,21 @@ final class Director: @unchecked Sendable {
             musicPath: musicURL.path,
             musicVolume: 0.34 * request.preset.music.duckLinear
         )
+        if request.channel.introSeconds > 0.05, var voice = plan.voice {
+            voice.start = request.channel.introSeconds
+            plan.voice = voice
+        }
 
         var renderedClips: [URL] = []
         let canvas = CGSize(width: plan.width, height: plan.height)
+        let logo = ChannelStore.logoURL(for: request.channel).flatMap { ImageIO.loadCGImage(from: $0) }
         for (index, clip) in plan.clips.enumerated() {
             try Task.checkCancellation()
             await emit(.compose, "Composing beat \(index + 1)/\(plan.clips.count)", extra: 0.08)
             let out = assetsDir.appendingPathComponent("clip-\(index).mp4")
             let assignment = footage.assignments[clip.beatID]
             let beat = storyboard.beats.first { $0.id == clip.beatID }
-            let beatCaptions = project.captions.map { cue in
+            let beatCaptions = request.burnCaptions ? project.captions.map { cue in
                 CaptionCue(
                     id: cue.id,
                     text: cue.text,
@@ -202,7 +229,7 @@ final class Director: @unchecked Sendable {
                     words: cue.words,
                     highlightWordIndex: cue.highlightWordIndex
                 )
-            }
+            } : []
             if assignment?.asset.kind == .video, let file = assignment?.fileURL {
                 try await ClipWriter.writeVideo(
                     source: file,
@@ -216,6 +243,7 @@ final class Director: @unchecked Sendable {
                     titleStyle: request.preset.titleCard,
                     stepNumber: clip.stepNumber,
                     timelineOffset: clip.start,
+                    logo: logo,
                     outputURL: out
                 )
             } else {
@@ -246,6 +274,7 @@ final class Director: @unchecked Sendable {
                     titleStyle: request.preset.titleCard,
                     stepNumber: clip.stepNumber,
                     timelineOffset: clip.start,
+                    logo: logo,
                     outputURL: out
                 )
             }
@@ -254,6 +283,46 @@ final class Director: @unchecked Sendable {
             renderedClips.append(out)
         }
         completed.append(.compose)
+
+        try Task.checkCancellation()
+        await emit(.package, "Building the YouTube publish pack")
+        var pack = PublishPackWriter.write(
+            topic: request.topic,
+            script: script,
+            storyboard: storyboard,
+            preset: request.preset,
+            channel: request.channel,
+            series: request.seriesName,
+            target: request.target
+        )
+        if request.useLocalAI {
+            let status = await LocalAIClient.shared.probe()
+            if let model = status.ollamaModel,
+               let raw = await LocalAIClient.shared.generatePublishCopy(
+                topic: request.topic,
+                script: script,
+                channel: request.channel,
+                model: model
+               ) {
+                pack = PublishPackWriter.parseModelOutput(raw, fallback: pack)
+            }
+        }
+        let thumbURL = assetsDir.appendingPathComponent("thumbnail.jpg")
+        ThumbnailRenderer.render(
+            hook: script.hook,
+            channel: request.channel,
+            preset: request.preset,
+            to: thumbURL
+        )
+        pack.thumbnailPath = thumbURL.path
+        if request.exportSRT {
+            let srtURL = assetsDir.appendingPathComponent("captions.srt")
+            try? SRTWriter.write(cues: project.captions, to: srtURL)
+            pack.srtPath = srtURL.path
+        }
+        project.publishPack = pack
+        completed.append(.package)
+        try ProjectStore.save(project)
 
         try Task.checkCancellation()
         await emit(.export, "Writing H.264 MP4 to Movies/ReelForge")
@@ -266,6 +335,20 @@ final class Director: @unchecked Sendable {
             fallbackAudio: [voiceURL, musicURL]
         )
         project.exportPath = exportURL.path
+        if let thumb = pack.thumbnailPath {
+            let dest = exportURL.deletingPathExtension().appendingPathExtension("jpg")
+            copyReplacing(URL(fileURLWithPath: thumb), to: dest)
+            pack.thumbnailPath = dest.path
+        }
+        if let srt = pack.srtPath {
+            let dest = exportURL.deletingPathExtension().appendingPathExtension("srt")
+            copyReplacing(URL(fileURLWithPath: srt), to: dest)
+            pack.srtPath = dest.path
+        }
+        if let data = try? JSONEncoder().encode(pack) {
+            try? data.write(to: exportURL.deletingPathExtension().appendingPathExtension("json"))
+        }
+        project.publishPack = pack
         project.updatedAt = Date()
         completed.append(.export)
         try ProjectStore.save(project)
@@ -279,6 +362,57 @@ final class Director: @unchecked Sendable {
         ))
 
         return GenerateResult(project: project, exportURL: exportURL, timeline: plan)
+    }
+
+    private func spokenText(_ script: GeneratedScript, pause: Double) -> String {
+        let gap = pause > 0.05 ? String(repeating: ". ", count: max(1, Int(pause * 4))) : " "
+        return script.spokenLines.joined(separator: gap)
+    }
+
+    private func applyChannelBookends(_ board: Storyboard, channel: ChannelKit) -> Storyboard {
+        var beats = board.beats
+        var duration = board.duration
+        if channel.introSeconds > 0.05 {
+            let shift = channel.introSeconds
+            beats = beats.map { beat in
+                var next = beat
+                next.start += shift
+                next.index += 1
+                return next
+            }
+            let intro = Beat(
+                id: "intro",
+                index: 0,
+                role: .hook,
+                text: channel.name.isEmpty ? "ReelForge" : channel.name,
+                start: 0,
+                duration: shift,
+                unsplashQuery: "abstract cinematic texture"
+            )
+            beats.insert(intro, at: 0)
+            duration += shift
+        }
+        if channel.outroEnabled {
+            let outro = Beat(
+                id: "outro",
+                index: beats.count,
+                role: .cta,
+                text: channel.name.isEmpty ? "Subscribe for the next one." : "Subscribe to \(channel.name).",
+                start: duration,
+                duration: 2.4,
+                unsplashQuery: "dark studio subscribe"
+            )
+            beats.append(outro)
+            duration += 2.4
+        }
+        return Storyboard(beats: beats, duration: duration, presetID: board.presetID)
+    }
+
+    private func copyReplacing(_ from: URL, to dest: URL) {
+        if FileManager.default.fileExists(atPath: dest.path) {
+            try? FileManager.default.removeItem(at: dest)
+        }
+        try? FileManager.default.copyItem(at: from, to: dest)
     }
 }
 

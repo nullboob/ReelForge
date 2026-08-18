@@ -9,6 +9,9 @@ struct LocalAIStatus: Equatable {
     var aceStep = false
     var mlxImage = false
     var whisper = false
+    var kokoro = false
+    var piper = false
+    var ttsEngine = "AVSpeech"
     var ollamaModel: String?
 
     var anyImage: Bool { comfyUI || automatic1111 || mlxImage }
@@ -35,8 +38,16 @@ actor LocalAIClient {
             || isUp(URL(string: "http://127.0.0.1:8088/health")!)
         async let whisper = isUp(URL(string: "http://127.0.0.1:9000/health")!)
             || isUp(URL(string: "http://127.0.0.1:9000/")!)
+        async let kokoro = isUp(URL(string: "http://127.0.0.1:8880/v1/models")!)
+            || isUp(URL(string: "http://127.0.0.1:8880/")!)
+        let piper = SpeechService.piperAvailable()
         let model = await ollama
         let comfyCaps = await comfy
+        let kokoroUp = await kokoro
+        let tts: String
+        if kokoroUp { tts = "Kokoro" }
+        else if piper { tts = "Piper" }
+        else { tts = "AVSpeech" }
         return LocalAIStatus(
             ollama: model != nil,
             automatic1111: await a1111,
@@ -46,21 +57,40 @@ actor LocalAIClient {
             aceStep: await ace,
             mlxImage: await mlx,
             whisper: await whisper,
+            kokoro: kokoroUp,
+            piper: piper,
+            ttsEngine: tts,
             ollamaModel: model
         )
     }
 
-    func generateScript(topic: String, preset: Preset, model: String) async -> String? {
+    func generateScript(topic: String, preset: Preset, model: String, durationSec: Int) async -> String? {
+        await complete(
+            prompt: ScriptWriter.ollamaPrompt(topic: topic, preset: preset, durationSec: durationSec),
+            model: model,
+            predict: durationSec >= 180 ? 700 : 280
+        )
+    }
+
+    func generatePublishCopy(topic: String, script: GeneratedScript, channel: ChannelKit, model: String) async -> String? {
+        await complete(
+            prompt: PublishPackWriter.ollamaPrompt(topic: topic, script: script, channel: channel),
+            model: model,
+            predict: 220
+        )
+    }
+
+    private func complete(prompt: String, model: String, predict: Int) async -> String? {
         guard let url = URL(string: "http://127.0.0.1:11434/api/generate") else { return nil }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 45
+        request.timeoutInterval = 60
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let body: [String: Any] = [
             "model": model,
-            "prompt": ScriptWriter.ollamaPrompt(topic: topic, preset: preset),
+            "prompt": prompt,
             "stream": false,
-            "options": ["temperature": 0.7, "num_predict": 280]
+            "options": ["temperature": 0.7, "num_predict": predict]
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         guard let (data, response) = try? await URLSession.shared.data(for: request),

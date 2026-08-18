@@ -7,7 +7,35 @@ struct Inspector: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                section("Brief") {
+                section("Create") {
+                    labeled("Channel type") {
+                        Picker("", selection: $state.channelType) {
+                            ForEach(ChannelType.allCases, id: \.self) { type in
+                                Text(type.displayName).tag(type)
+                            }
+                        }
+                        .labelsHidden()
+                        .onChange(of: state.channelType) { _, type in
+                            state.selectChannelType(type)
+                        }
+                    }
+                    labeled("Target") {
+                        Picker("", selection: $state.target) {
+                            ForEach(VideoTarget.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                    }
+                    labeled("Language") {
+                        Picker("", selection: $state.language) {
+                            Text("English").tag(ContentLanguage.english)
+                        }
+                        .labelsHidden()
+                    }
+                    labeled("Series / pillar") {
+                        TextField("Optional series name", text: $state.seriesName)
+                            .textFieldStyle(.roundedBorder)
+                    }
                     Text("Topic or full script")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(RFTheme.muted)
@@ -20,7 +48,7 @@ struct Inspector: View {
                         TextEditor(text: $state.topic)
                             .font(.system(size: 13))
                             .scrollContentBackground(.hidden)
-                            .frame(minHeight: 120)
+                            .frame(minHeight: 110)
                             .padding(6)
                     }
                     .background(RFTheme.elevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -33,10 +61,8 @@ struct Inspector: View {
                 section("Format") {
                     labeled("Aspect") {
                         Picker("", selection: aspectBinding) {
-                            Text("Preset").tag(Optional<AspectRatio>.none)
-                            ForEach(AspectRatio.allCases, id: \.self) { aspect in
-                                Text(aspect.rawValue).tag(Optional(aspect))
-                            }
+                            Text("Auto").tag(Optional<AspectRatio>.none)
+                            ForEach(AspectRatio.allCases, id: \.self) { Text($0.rawValue).tag(Optional($0)) }
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
@@ -44,34 +70,49 @@ struct Inspector: View {
                     labeled("Duration") {
                         Picker("", selection: durationBinding) {
                             Text("Preset").tag(Optional<Int>.none)
-                            Text("15s").tag(Optional(15))
-                            Text("30s").tag(Optional(30))
-                            Text("60s").tag(Optional(60))
+                            ForEach(state.target.durationChoices, id: \.self) { seconds in
+                                Text(seconds >= 60 ? "\(seconds / 60)m" : "\(seconds)s").tag(Optional(seconds))
+                            }
                         }
                         .labelsHidden()
                     }
                 }
 
                 section("Voice") {
+                    Text("Engine: \(state.localStatus.ttsEngine)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(RFTheme.gold)
                     Picker("Voice", selection: voiceBinding) {
-                        Text("System default").tag(Optional<String>.none)
-                        ForEach(SpeechService.preferredVoices(), id: \.identifier) { voice in
-                            Text(voice.name).tag(Optional(voice.identifier))
+                        Text("Auto (Kokoro → Piper → Mac)").tag(Optional<String>.none)
+                        ForEach(SpeechService.allVoices()) { voice in
+                            Text(voice.name).tag(Optional(voice.id))
                         }
                     }
                     .labelsHidden()
+                    labeled("Speed \(String(format: "%.2f", state.voiceSpeed))") {
+                        Slider(value: $state.voiceSpeed, in: 0.7...1.35)
+                    }
+                    labeled("Pause between beats \(String(format: "%.1f", state.beatPause))s") {
+                        Slider(value: $state.beatPause, in: 0...0.8)
+                    }
+                }
+
+                section("Captions") {
+                    Toggle("Burn captions into the video", isOn: $state.burnCaptions)
+                    Toggle("Also export sidecar SRT", isOn: $state.exportSRT)
                 }
 
                 section("Sources") {
-                    Toggle("Unsplash B-roll", isOn: $state.useUnsplash)
-                    if state.useUnsplash && !state.unsplashConfigured {
-                        Button("Add Unsplash key in Settings") { state.showSettings = true }
+                    Toggle("Pexels stock video", isOn: $state.usePexels)
+                    if state.usePexels && !state.pexelsConfigured {
+                        Button("Add Pexels key in Settings") { state.showSettings = true }
                             .buttonStyle(GhostButtonStyle())
                     }
+                    Toggle("Unsplash stills", isOn: $state.useUnsplash)
                     Toggle("Use ComfyUI / local AI if available", isOn: $state.useLocalAI)
                     DropZone()
                     if let voice = state.voiceoverURL {
-                        Text("VO: \(voice.lastPathComponent)")
+                        Text("VO: \(voice.lastPathComponent) (wins over TTS)")
                             .font(.system(size: 11))
                             .foregroundStyle(RFTheme.muted)
                     }
@@ -79,6 +120,30 @@ struct Inspector: View {
                         Text("\(state.footageURLs.count) local files")
                             .font(.system(size: 11))
                             .foregroundStyle(RFTheme.muted)
+                    }
+                }
+
+                section("Batch") {
+                    Text("One topic per line. Generate all.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(RFTheme.muted)
+                    TextEditor(text: $state.batchText)
+                        .font(.system(size: 12))
+                        .scrollContentBackground(.hidden)
+                        .frame(minHeight: 72)
+                        .padding(6)
+                        .background(RFTheme.elevated, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    Button("Generate all") { state.generateBatch() }
+                        .buttonStyle(GhostButtonStyle())
+                        .disabled(state.isGenerating)
+                    ForEach(state.batchItems) { item in
+                        HStack {
+                            Circle().fill(batchColor(item.status)).frame(width: 7, height: 7)
+                            Text(item.topic).lineLimit(1)
+                            Spacer()
+                            Text(item.status.rawValue).foregroundStyle(RFTheme.muted)
+                        }
+                        .font(.system(size: 11))
                     }
                 }
 
@@ -115,6 +180,15 @@ struct Inspector: View {
 
     private var voiceBinding: Binding<String?> {
         Binding(get: { state.voiceIdentifier }, set: { state.voiceIdentifier = $0 })
+    }
+
+    private func batchColor(_ status: BatchItem.Status) -> Color {
+        switch status {
+        case .idle: return RFTheme.muted
+        case .running: return RFTheme.gold
+        case .done: return .green
+        case .failed: return RFTheme.accent
+        }
     }
 
     private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {

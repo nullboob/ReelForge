@@ -72,8 +72,10 @@ struct TopBar: View {
 
     private var statusChips: some View {
         HStack(spacing: 8) {
+            chip(state.localStatus.ttsEngine, on: true)
             chip(state.localStatus.comfyUI ? "ComfyUI" : "Comfy off", on: state.localStatus.comfyUI)
             chip(state.localStatus.ollama ? "Ollama" : "LLM off", on: state.localStatus.ollama)
+            chip(state.pexelsConfigured ? "Pexels" : "No Pexels", on: state.pexelsConfigured)
             chip(state.unsplashConfigured ? "Unsplash" : "No Unsplash", on: state.unsplashConfigured)
             if state.localStatus.aceStep {
                 chip("ACE-Step", on: true)

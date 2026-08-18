@@ -2,9 +2,9 @@ import XCTest
 @testable import ReelForgeCore
 
 final class PresetDecodeTests: XCTestCase {
-    func testLoadsAllEightPresets() throws {
+    func testLoadsAllBundledPresets() throws {
         let presets = try loadPresets()
-        XCTAssertEqual(presets.count, 8)
+        XCTAssertEqual(presets.count, 14)
         XCTAssertEqual(presets.map(\.id), PresetCatalog.expectedIDs)
     }
 
@@ -13,7 +13,7 @@ final class PresetDecodeTests: XCTestCase {
             XCTAssertFalse(preset.name.isEmpty, preset.id)
             XCTAssertFalse(preset.tagline.isEmpty, preset.id)
             XCTAssertGreaterThanOrEqual(preset.coverGradient.count, 2, preset.id)
-            XCTAssertTrue([15, 20, 30, 45, 60].contains(preset.durationSec), preset.id)
+            XCTAssertTrue([15, 20, 30, 45, 60, 180, 240, 300, 480].contains(preset.durationSec), preset.id)
             XCTAssertGreaterThan(preset.pace.cutMinSec, 0, preset.id)
             XCTAssertGreaterThan(preset.pace.cutMaxSec, preset.pace.cutMinSec, preset.id)
             XCTAssertGreaterThan(preset.captionStyle.maxWordsPerCard, 0, preset.id)

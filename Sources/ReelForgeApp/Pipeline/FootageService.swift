@@ -14,7 +14,9 @@ struct FootageService {
         workDir: URL,
         localFiles: [URL],
         unsplashKey: String?,
+        pexelsKey: String?,
         useUnsplash: Bool,
+        usePexels: Bool,
         useLocalAI: Bool,
         onProgress: @MainActor @escaping (String) -> Void
     ) async -> (assignments: [String: FootageAssignment], attributions: [UnsplashAttribution], warnings: [String]) {
@@ -24,8 +26,11 @@ struct FootageService {
         let size = aspect.pixelSize
         let localMedia = localFiles.filter { isMedia($0) }
 
+        if usePexels, pexelsKey == nil {
+            warnings.append("No Pexels key — stock video skipped. Add one in Settings.")
+        }
         if useUnsplash, unsplashKey == nil {
-            warnings.append("No Unsplash key — using styled cards. Add one in Settings.")
+            warnings.append("No Unsplash key — stills skipped unless cards or ComfyUI fill in.")
         }
 
         for (index, beat) in beats.enumerated() {
@@ -45,30 +50,25 @@ struct FootageService {
                 }
             }
 
-            if useLocalAI {
-                let prompt = "\(beat.text). \(preset.aiImageStyleSuffix)"
-                if index == 0 {
-                    let destVideo = workDir.appendingPathComponent("beat-\(index).mp4")
-                    await onProgress("Trying ComfyUI video for the hook beat")
-                    if await LocalVideoClient.shared.generateVideo(prompt: prompt, startImage: nil, to: destVideo),
-                       FileManager.default.fileExists(atPath: destVideo.path) {
-                        assignments[beat.id] = FootageAssignment(
-                            asset: AssetRef(id: "comfy-video-\(index)", kind: .video, relativePath: destVideo.lastPathComponent, beatID: beat.id),
-                            fileURL: destVideo
-                        )
-                        continue
-                    }
-                    let caps = await ComfyUIClient.shared.capabilities()
-                    if caps.online, caps.canImageToVideo {
-                        warnings.append("ComfyUI shows LTX/I2V nodes. Save an API-format workflow as Application Support/ReelForge/comfy-i2v.json to use it.")
-                    }
-                }
-                await onProgress("Asking ComfyUI for still \(index + 1)/\(beats.count)")
-                if await LocalAIClient.shared.generateImage(prompt: prompt, size: size, to: destImage),
-                   FileManager.default.fileExists(atPath: destImage.path) {
+            if usePexels, let key = pexelsKey {
+                let destVideo = workDir.appendingPathComponent("pexels-\(index).mp4")
+                await onProgress("Searching Pexels video for beat \(index + 1)/\(beats.count)")
+                if let clip = await PexelsClient.shared.search(
+                    query: beat.unsplashQuery,
+                    accessKey: key,
+                    portrait: aspect != .landscape
+                ), await PexelsClient.shared.download(clip, to: destVideo) {
+                    let attr = UnsplashAttribution(
+                        source: "pexels",
+                        photographer: clip.photographer,
+                        photographerURL: clip.photographerURL,
+                        photoURL: clip.pageURL,
+                        beatID: beat.id
+                    )
+                    attributions.append(attr)
                     assignments[beat.id] = FootageAssignment(
-                        asset: AssetRef(id: "ai-\(index)", kind: .image, relativePath: destImage.lastPathComponent, beatID: beat.id),
-                        fileURL: destImage
+                        asset: AssetRef(id: "pexels-\(clip.id)", kind: .video, relativePath: destVideo.lastPathComponent, beatID: beat.id, attribution: attr),
+                        fileURL: destVideo
                     )
                     continue
                 }
@@ -89,6 +89,31 @@ struct FootageService {
                     attributions.append(attr)
                     assignments[beat.id] = FootageAssignment(
                         asset: AssetRef(id: photo.id, kind: .image, relativePath: destImage.lastPathComponent, beatID: beat.id, attribution: attr),
+                        fileURL: destImage
+                    )
+                    continue
+                }
+            }
+
+            if useLocalAI {
+                let prompt = "\(beat.text). \(preset.aiImageStyleSuffix)"
+                if index == 0 {
+                    let destVideo = workDir.appendingPathComponent("comfy-\(index).mp4")
+                    await onProgress("Trying ComfyUI video for the hook beat")
+                    if await LocalVideoClient.shared.generateVideo(prompt: prompt, startImage: nil, to: destVideo),
+                       FileManager.default.fileExists(atPath: destVideo.path) {
+                        assignments[beat.id] = FootageAssignment(
+                            asset: AssetRef(id: "comfy-video-\(index)", kind: .video, relativePath: destVideo.lastPathComponent, beatID: beat.id),
+                            fileURL: destVideo
+                        )
+                        continue
+                    }
+                }
+                await onProgress("Asking ComfyUI for still \(index + 1)/\(beats.count)")
+                if await LocalAIClient.shared.generateImage(prompt: prompt, size: size, to: destImage),
+                   FileManager.default.fileExists(atPath: destImage.path) {
+                    assignments[beat.id] = FootageAssignment(
+                        asset: AssetRef(id: "ai-\(index)", kind: .image, relativePath: destImage.lastPathComponent, beatID: beat.id),
                         fileURL: destImage
                     )
                     continue

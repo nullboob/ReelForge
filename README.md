@@ -1,8 +1,10 @@
 # ReelForge
 
-A native macOS app that writes the edit for you. Pick a preset, type a topic or script, optionally drop local footage or a voiceover, and hit **Generate**. ReelForge builds a finished H.264 MP4 with captions, B-roll or styled cards, color grade, transitions, and a ducked music bed.
+A native macOS app for people starting a YouTube channel. Type a topic, pick a preset, hit **Generate**. ReelForge writes the script, speaks it, burns captions, lays B-roll, ducks music, and hands you a publish-ready MP4 plus a **Publish pack** (title, description, tags, chapters, thumbnail, SRT).
 
-This is an automated director, not a timeline NLE. There is no manual cutting.
+This is an automated director, not a timeline NLE. There is no manual cutting. Faceless channels first. Shorts (9:16) and long-form (16:9).
+
+Marketing site: [`site/index.html`](site/index.html)
 
 ## Requirements
 
@@ -10,16 +12,37 @@ This is an automated director, not a timeline NLE. There is no manual cutting.
 - Xcode 15+
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen)
 
-Optional:
+Nothing optional is required to export a playable video. AVSpeech, styled cards, and bundled music beds always work.
 
-- An [Unsplash](https://unsplash.com/developers) access key for still B-roll
-- [Ollama](https://ollama.com) on `localhost:11434` for script writing
-- **ComfyUI** on `http://127.0.0.1:8188` (probed first) for local image / LTX video
-- Automatic1111 on `127.0.0.1:7860` as a secondary image backend
-- ACE-Step on `127.0.0.1:7865` (optional music; programmatic beds always work)
-- `ffmpeg` on `PATH` as an export fallback only. AVFoundation is the Mac export path.
+## Open-source / free stack
 
-Nothing optional is required to export a playable video.
+| Job | Tool | License / notes | Required? |
+| --- | --- | --- | --- |
+| Script / SEO | Ollama at `localhost:11434` | Local LLM. Template writer if down. | Optional |
+| TTS | **Kokoro-82M** via `http://127.0.0.1:8880` (kokoro-fastapi) | Apache 2.0. Voice picker. | Optional |
+| TTS | **Piper** binary on `PATH` | CPU, offline | Optional |
+| TTS | macOS `AVSpeechSynthesizer` | Always works so Generate never blocks | Built-in |
+| Voiceover | User-dropped WAV/M4A/MP3 | Wins over every TTS engine | Optional |
+| Captions | Duration-align from script | Word-timed cards, karaoke / pop / lower-third | Built-in |
+| Captions | Whisper HTTP at `:9000` / WhisperKit if present | Used only when a real VO file exists | Optional |
+| Stock video | [Pexels Videos API](https://www.pexels.com/api/) | Free key. Settings / Keychain `REELFORGE_PEXELS_API_KEY` | Optional |
+| Stock photo | [Unsplash API](https://unsplash.com/developers) | Free key. Settings / Keychain `REELFORGE_UNSPLASH_ACCESS_KEY` | Optional |
+| Local image / video | ComfyUI `:8188`, A1111 `:7860` | User already runs these. LTX if a workflow is available | Optional |
+| Music | Bundled original-safe beds | Pulse / cinematic / clean / warm, ducked under VO | Built-in |
+| Music | ACE-Step HTTP (`7865` / `8001` / `8019`) | Optional hook. No copyrighted downloads | Optional |
+| Compose / export | AVFoundation | H.264 MP4 to `~/Movies/ReelForge/<video-folder>/` | Built-in |
+| Export fallback | `ffmpeg` on PATH | Only if `AVAssetExportSession` fails | Optional |
+| YouTube upload | Data API key in Settings | Field stored. Upload button is disabled / coming soon. No fake upload | Optional |
+
+Footage order per beat, never stall:
+
+1. User local video / images
+2. Pexels Videos API
+3. Unsplash stills + Ken Burns
+4. ComfyUI localhost:8188
+5. Generated gradient / type cards
+
+Attribution (Pexels / Unsplash) is stored on `project.json`. It is not burned into the frame.
 
 ## Generate the Xcode project and run
 
@@ -39,102 +62,118 @@ Keyboard:
 - `⌘R` generate / cancel
 - `⌘E` reveal the last export
 
-Exports land in `~/Movies/ReelForge/`.
+Each export is a folder under `~/Movies/ReelForge/` containing the MP4, thumbnail `.jpg`, sidecar `.srt`, and publish-pack `.json`.
+
+## Create → Generate → Publish pack
+
+1. **Topic or full script** — a sentence, a list, or a pasted script.
+2. **Channel type** — faceless facts, listicle, explainer, storytime, product, commentary, news.
+3. **Target** — YouTube Short (15–60s) or Long (3–8 min) with duration control.
+4. **Language** — English first; the model is ready for more.
+5. **Series / pillar** — optional name used in titles and tags.
+6. **Generate** — voice, captions, footage, music, compose, package, export.
+7. **Publish pack** — title (≤70), description with chapters + CTA, tags / hashtags, 1280×720 thumbnail, suggested filename.
+
+Batch: paste two or more topics, pick a preset, **Generate all**. Progress list. One export folder per video.
+
+## Channel kit
+
+Settings → Channel:
+
+- Channel name, primary / accent colors
+- Logo drop (safe-area watermark)
+- Intro seconds (0–3) and outro subscribe card
+- Default voice, default preset, default aspect
+
+Applied automatically on Generate.
+
+## Voice
+
+Priority: dropped VO → Kokoro-82M (`:8880`) → Piper on PATH → AVSpeech.
+
+The inspector shows the live engine, a named voice picker, speed, and pause between beats.
 
 ## What works offline
 
 Always:
 
-- Template script writer (hook / body / CTA from the topic)
+- Template script + SEO writer (hook / body / CTA, title / description / tags / chapters)
 - Storyboard timing from the preset pace
 - System `AVSpeechSynthesizer` voiceover
-- Word-timed caption cards burned into the picture
-- Styled gradient/typography cards when no footage is available
-- Programmatic original-safe music beds (pulse / cinematic / clean / warm)
-- Color grade, Ken Burns, grain, transitions
-- H.264 MP4 export via AVFoundation
-
-Needs a key or a local service:
-
-| Capability | Offline | Needs |
-| --- | --- | --- |
-| Unsplash stills | Styled cards | `REELFORGE_UNSPLASH_ACCESS_KEY` or Settings → Keychain |
-| LLM script | Built-in writer | Ollama at `http://127.0.0.1:11434` |
-| AI images | Styled cards | **ComfyUI `:8188` first**, then A1111 `:7860` |
-| AI video | Skipped | Live ComfyUI + LTX nodes or `comfy-i2v.json`. No cloud video model is pretended. |
-| Music | Programmatic bed | Optional ACE-Step HTTP if a `/generate` hook answers |
-| Whisper word times | Duration alignment | Optional `http://127.0.0.1:9000/asr` |
+- Word-timed caption cards + sidecar SRT
+- Styled gradient / typography cards
+- Programmatic original-safe music beds
+- Color grade, Ken Burns, grain, transitions, channel intro/outro
+- H.264 MP4 + 1280×720 thumbnail via AVFoundation / Core Image
 
 The director never stalls. If a source is missing it records a warning on the project and keeps going.
 
-## Unsplash
+## Optional keys
 
-1. Create a developer app at [unsplash.com/developers](https://unsplash.com/developers) and copy the **Access Key**.
-2. Either:
-   - export `REELFORGE_UNSPLASH_ACCESS_KEY=...` in the environment Xcode / Terminal uses, or
-   - paste it in **Settings** (stored in Keychain, never committed).
-3. Photographer names are stored on `project.json`. They are not burned into the frame.
+**Pexels** (stock video, preferred over stills):
 
-Without a key, Generate still works.
+1. Create a free key at [pexels.com/api](https://www.pexels.com/api/).
+2. Paste it in Settings, or set `REELFORGE_PEXELS_API_KEY`.
 
-## Optional Ollama
+**Unsplash** (stills + Ken Burns):
+
+1. Create an access key at [unsplash.com/developers](https://unsplash.com/developers).
+2. Paste it in Settings, or set `REELFORGE_UNSPLASH_ACCESS_KEY`.
+
+**YouTube Data API** (upload later):
+
+- Settings stores the key. The Upload button stays disabled until OAuth is wired. ReelForge will not pretend an upload succeeded.
+
+Do not put keys in the repo. `.env` is gitignored.
+
+## Optional local services
 
 ```bash
+# Script / SEO
 brew install ollama
 ollama serve
 ollama pull llama3.2
+
+# Voice (pick one)
+# Kokoro-fastapi commonly listens on http://127.0.0.1:8880
+# Piper: brew install piper-tts   # if a bottle exists on your Mac
 ```
 
-ReelForge probes `http://127.0.0.1:11434/api/tags` and uses the first suitable model. If Ollama is down, the template writer produces a real script from the topic.
-
-## Local ComfyUI (preferred image / video backend)
-
-The Mac app talks to whatever is listening on this machine. A Windows portable ComfyUI + NVIDIA box on the LAN is fine if you port-forward `8188` to localhost, but ReelForge itself stays a native SwiftUI macOS app.
-
-Probe order:
-
-1. `GET http://127.0.0.1:8188/system_stats` then `/object_info`
-2. If `CheckpointLoaderSimple` + KSampler exist, queue a simple text-to-image graph via `POST /prompt`
-3. If LTX / I2V nodes are installed (`LTXV*`, `ltx-video-2b`, GGUF loaders, qwen-image-edit), Settings shows a video chip
-4. To actually run *your* LTX or qwen-image-edit graph, export **API format** from ComfyUI and save:
+ComfyUI on `http://127.0.0.1:8188` is probed first for local images / LTX video. Export API-format workflows to:
 
 ```
 ~/Library/Application Support/ReelForge/comfy-t2i.json
 ~/Library/Application Support/ReelForge/comfy-i2v.json
 ```
 
-ReelForge injects the beat prompt (and a start frame when I2V). If the exact workflow is missing, it skips video and keeps exporting with stills, Unsplash, or styled cards.
-
-Automatic1111 on `7860` is still probed as a fallback image API.
-
-## Optional ACE-Step
-
-Programmatic original-safe beds always play. If ACE-Step is up on `7865` / `8001` / `8019` and exposes a simple `/generate` JSON hook, the Director will try it once. Copyrighted music is never downloaded.
+Automatic1111 on `7860` is a secondary image API. ACE-Step is optional music only.
 
 ## Architecture
 
 The edit is a **JSON storyboard plus a deterministic AVFoundation renderer**. An LLM never moves frames.
 
 1. **Script** — user script, Ollama, or the template writer
-2. **Storyboard** — beats clamped to the preset cut range
-3. **Voice** — dropped VO or `AVSpeechSynthesizer` (always produces audio)
-4. **Captions** — word-timed cards; optional local Whisper HTTP
-5. **Footage** — local files → ComfyUI (8188) / A1111 → Unsplash → styled cards
+2. **Storyboard** — beats clamped to the preset cut range, plus channel intro/outro
+3. **Voice** — dropped VO, Kokoro, Piper, or AVSpeech (always produces audio)
+4. **Captions** — word-timed cards; optional local Whisper HTTP; burn-in and/or SRT
+5. **Footage** — local → Pexels → Unsplash → ComfyUI / A1111 → styled cards
 6. **Music** — ACE-Step if a clean hook answers, else a synthesized loop, ducked under VO
-7. **Compose** — per-beat H.264 clips (Ken Burns, grade, burned captions) assembled with `AVMutableComposition` + `AVMutableVideoComposition`
-8. **Export** — `AVAssetExportSession` to `~/Movies/ReelForge/`; `ffmpeg` only if that fails
-
-Portable logic lives in `Sources/ReelForgeCore` (models, script, storyboard, captions, music, timeline plan). The Mac app in `Sources/ReelForgeApp` owns SwiftUI, AVFoundation, Unsplash, and local HTTP.
+7. **Compose** — per-beat H.264 clips (Ken Burns, grade, captions, logo) assembled with `AVMutableComposition`
+8. **Package** — title, description, tags, chapters, 1280×720 thumbnail
+9. **Export** — `AVAssetExportSession` into a per-video folder; `ffmpeg` only if that fails
 
 ```
 Sources/ReelForgeCore/     SPM library, Linux-testable
 Sources/ReelForgeApp/      SwiftUI + AVFoundation Mac app
-Tests/ReelForgeTests/      storyboard timing, caption split, presets, timeline
+Tests/ReelForgeTests/      storyboard, captions, presets, publish pack
+site/                      sales page
 ```
 
-Projects persist under `~/Library/Application Support/ReelForge/Projects/<id>/`.
+Projects persist under `~/Library/Application Support/ReelForge/Projects/<id>/`. Channel kit is `channel.json` next to that.
 
 ## Presets
+
+Original eight, plus six YouTube starters:
 
 | Preset | Aspect | Length | Feel |
 | --- | --- | --- | --- |
@@ -146,6 +185,12 @@ Projects persist under `~/Library/Application Support/ReelForge/Projects/<id>/`.
 | **YouTube Short News** | 9:16 | 30s | Lower-third / karaoke captions |
 | **Travel Vlog** | 9:16 | 30s | Warm grade, whip pans |
 | **Tutorial Steps** | 9:16 | 45s | Numbered cards, calm fades |
+| **Listicle** | 9:16 | 45s | Numbered payoffs |
+| **Explainer** | 16:9 | 3 min | Calm cuts, one idea |
+| **Storytime** | 9:16 | 60s | Quiet open, a turn |
+| **Motivational** | 9:16 | 30s | Commentary energy |
+| **Podcast Clip** | 9:16 | 45s | Big karaoke captions |
+| **News Roundup** | 16:9 | 3 min | Lower-thirds, no fluff |
 
 JSON lives in `Sources/ReelForgeCore/Resources/presets/`.
 
@@ -163,15 +208,15 @@ On a Mac, after `xcodegen generate`, build the **ReelForge** scheme in Xcode.
 
 ## Example
 
-1. Select **Viral Hook**
+1. Select **Listicle** (or Viral Hook)
 2. Type `3 reasons your morning walk beats the gym`
 3. Generate
-4. Play the MP4 and use **Reveal in Finder**
+4. Play the MP4, copy the Publish pack, reveal the folder
 
-You get speech, captions, B-roll or styled cards, a pulse bed, and a file in `~/Movies/ReelForge/`.
+You get speech, captions, B-roll or styled cards, a ducked bed, a thumbnail, and sidecar SRT.
 
 ## Notes
 
 - Music beds are synthesized at export time unless a local ACE-Step `/generate` hook answers. No copyrighted audio is downloaded.
 - App Sandbox is on, with Movies write, user-selected files, and outgoing network.
-- Do not put Unsplash keys in the repo. `.env` is gitignored.
+- Do not put API keys in the repo.

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum RFTheme {
@@ -23,6 +24,17 @@ extension Color {
             green: Double((value >> 16) & 0xFF) / 255,
             blue: Double((value >> 8) & 0xFF) / 255,
             opacity: Double(value & 0xFF) / 255
+        )
+    }
+
+    var hexString: String {
+        let ns = NSColor(self)
+        guard let rgb = ns.usingColorSpace(.sRGB) else { return "#FFFFFF" }
+        return String(
+            format: "#%02X%02X%02X",
+            Int((rgb.redComponent * 255).rounded()),
+            Int((rgb.greenComponent * 255).rounded()),
+            Int((rgb.blueComponent * 255).rounded())
         )
     }
 }

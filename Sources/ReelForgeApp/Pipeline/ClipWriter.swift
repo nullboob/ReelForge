@@ -17,6 +17,7 @@ enum ClipWriter {
         titleStyle: TitleCardStyle,
         stepNumber: Int?,
         timelineOffset: Double,
+        logo: CGImage?,
         outputURL: URL
     ) async throws {
         try await write(duration: duration, size: size, outputURL: outputURL) { ctx, time in
@@ -31,7 +32,8 @@ enum ClipWriter {
                 captionStyle: captionStyle,
                 title: title,
                 titleStyle: titleStyle,
-                stepNumber: stepNumber
+                stepNumber: stepNumber,
+                logo: logo
             )
         }
     }
@@ -48,6 +50,7 @@ enum ClipWriter {
         titleStyle: TitleCardStyle,
         stepNumber: Int?,
         timelineOffset: Double,
+        logo: CGImage?,
         outputURL: URL
     ) async throws {
         let asset = AVURLAsset(url: source)
@@ -81,7 +84,8 @@ enum ClipWriter {
                 captionStyle: captionStyle,
                 title: title,
                 titleStyle: titleStyle,
-                stepNumber: stepNumber
+                stepNumber: stepNumber,
+                logo: logo
             )
         }
     }
@@ -251,8 +255,13 @@ enum ClipWriter {
         captionStyle: CaptionStyle,
         title: String?,
         titleStyle: TitleCardStyle,
-        stepNumber: Int?
+        stepNumber: Int?,
+        logo: CGImage?
     ) {
+        if let logo {
+            drawWatermark(logo, ctx: ctx, size: size)
+        }
+
         if let stepNumber, stepNumber > 0 {
             let font = AppFont.make(name: titleStyle.font, size: min(42, size.width * 0.055), weight: "bold")
             let text = String(format: "%02d", stepNumber)
@@ -298,6 +307,23 @@ enum ClipWriter {
             ctx.draw(cg, in: CGRect(origin: .zero, size: size))
             ctx.restoreGState()
         }
+    }
+
+    private static func drawWatermark(_ logo: CGImage, ctx: CGContext, size: CGSize) {
+        let maxW = size.width * 0.14
+        let maxH = size.height * 0.09
+        let iw = CGFloat(logo.width)
+        let ih = CGFloat(logo.height)
+        guard iw > 1, ih > 1 else { return }
+        let scale = min(maxW / iw, maxH / ih)
+        let w = iw * scale
+        let h = ih * scale
+        let insetX = size.width * 0.055
+        let insetY = size.height * 0.055
+        ctx.saveGState()
+        ctx.setAlpha(0.82)
+        ctx.draw(logo, in: CGRect(x: size.width - insetX - w, y: size.height - insetY - h, width: w, height: h))
+        ctx.restoreGState()
     }
 }
 

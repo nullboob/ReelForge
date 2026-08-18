@@ -71,11 +71,18 @@ public enum ScriptWriter {
         return GeneratedScript(hook: hook, body: body, cta: cta, source: .ollama)
     }
 
-    public static func write(topic: String, presetID: String, source: ScriptSource = .template) -> GeneratedScript {
+    public static func write(
+        topic: String,
+        presetID: String,
+        source: ScriptSource = .template,
+        durationSec: Int = 30,
+        channelType: ChannelType = .facelessFacts
+    ) -> GeneratedScript {
         let clean = collapseWhitespace(topic)
-        let counted = extractCount(from: clean)
+        let counted = extractCount(from: clean, maxCount: durationSec >= 180 ? 12 : 6)
         let subject = counted?.subject ?? clean
-        let n = counted?.count ?? defaultPointCount(presetID: presetID)
+        let n = counted?.count ?? defaultPointCount(presetID: presetID, durationSec: durationSec)
+        _ = channelType
 
         switch presetID {
         case "product-demo":
@@ -92,25 +99,37 @@ public enum ScriptWriter {
             return travelScript(topic: clean, subject: subject, count: max(3, n), source: source)
         case "faceless-facts":
             return factsScript(topic: clean, subject: subject, count: max(3, n), source: source)
+        case "listicle":
+            return listicleScript(topic: clean, subject: subject, count: max(5, n), source: source)
+        case "explainer":
+            return explainerScript(topic: clean, subject: subject, count: max(4, n), source: source)
+        case "storytime":
+            return storyScript(topic: clean, subject: subject, source: source)
+        case "motivational":
+            return motivationalScript(topic: clean, subject: subject, source: source)
+        case "podcast-clip":
+            return podcastScript(topic: clean, subject: subject, count: max(3, n), source: source)
+        case "news-roundup":
+            return newsScript(topic: clean, subject: subject, count: max(4, n), source: source)
         default:
             return viralScript(topic: clean, subject: subject, count: max(3, n), source: source)
         }
     }
 
-    public static func ollamaPrompt(topic: String, preset: Preset) -> String {
-        """
-        Write a spoken video script for a \(preset.durationSec)-second \(preset.aspect.rawValue) video.
+    public static func ollamaPrompt(topic: String, preset: Preset, durationSec: Int = 30) -> String {
+        let budget = durationSec >= 180 ? "420-700" : "40-90"
+        let bodies = durationSec >= 180 ? 8 : 3
+        return """
+        Write a spoken video script for a \(durationSec)-second \(preset.aspect.rawValue) video.
         Style: \(preset.name) — \(preset.tagline)
         Topic: \(topic)
 
         Return plain text with these labeled lines and nothing else:
         HOOK: one punchy opening sentence
-        BODY: one sentence
-        BODY: one sentence
-        BODY: one sentence
+        \(Array(repeating: "BODY: one spoken sentence", count: bodies).joined(separator: "\n"))
         CTA: one short closing ask
 
-        Keep language spoken, concrete, and under 90 words total. No hashtags, no emoji.
+        Keep language spoken and concrete. About \(budget) words. No hashtags, no emoji.
         """
     }
 
@@ -202,8 +221,67 @@ public enum ScriptWriter {
         )
     }
 
+    private static func listicleScript(topic: String, subject: String, count: Int, source: ScriptSource) -> GeneratedScript {
+        let items = expandPoints(subject: subject, topic: topic, count: count, flavor: .listicle)
+        return GeneratedScript(
+            hook: "Here is the honest list on \(lowercase(subject)) — no filler ranks.",
+            body: items,
+            cta: "Which one are you trying first? Comment the number and subscribe for the next list.",
+            source: source
+        )
+    }
+
+    private static func explainerScript(topic: String, subject: String, count: Int, source: ScriptSource) -> GeneratedScript {
+        let beats = expandPoints(subject: subject, topic: topic, count: count, flavor: .explainer)
+        return GeneratedScript(
+            hook: "If \(lowercase(subject)) still feels fuzzy, watch this once and it will lock in.",
+            body: beats,
+            cta: "Replay the middle if you need it. Subscribe if you want the next explainer.",
+            source: source
+        )
+    }
+
+    private static func storyScript(topic: String, subject: String, source: ScriptSource) -> GeneratedScript {
+        return GeneratedScript(
+            hook: "I did not plan to tell this. Then \(lowercase(subject)) happened.",
+            body: [
+                "It started as an ordinary Tuesday, the kind you do not bother filming.",
+                "The first crack was small: a choice I almost shrugged off.",
+                "Then the cost showed up, and I could not pretend it was a coincidence.",
+                "Here is the part I would tell a friend if we had ten quiet minutes.",
+                "I still would not go back, but I would start sooner."
+            ],
+            cta: "If you needed this story, stay. The next one is already in the draft.",
+            source: source
+        )
+    }
+
+    private static func motivationalScript(topic: String, subject: String, source: ScriptSource) -> GeneratedScript {
+        return GeneratedScript(
+            hook: "Nobody is coming to rescue \(lowercase(subject)). That is the good news.",
+            body: [
+                "You do not need a new personality. You need a smaller first move.",
+                "The gym, the page, the walk — they all work when they are boring enough to repeat.",
+                "Stop waiting for the cinematic morning. Start in the messy one you already have.",
+                "Keep the streak ugly and alive. Pretty streaks die on day four."
+            ],
+            cta: "Do the first two minutes now. Then come back tomorrow.",
+            source: source
+        )
+    }
+
+    private static func podcastScript(topic: String, subject: String, count: Int, source: ScriptSource) -> GeneratedScript {
+        let beats = expandPoints(subject: subject, topic: topic, count: count, flavor: .podcast)
+        return GeneratedScript(
+            hook: "Clip this: the useful minute on \(lowercase(subject)).",
+            body: beats,
+            cta: "Full conversation is on the channel. Subscribe so you do not miss the next cut.",
+            source: source
+        )
+    }
+
     private enum Flavor {
-        case viral, facts, product, tutorial, news, travel
+        case viral, facts, product, tutorial, news, travel, listicle, explainer, podcast
     }
 
     private static func expandPoints(subject: String, topic: String, count: Int, flavor: Flavor) -> [String] {
@@ -234,6 +312,12 @@ public enum ScriptWriter {
             return "\(text)."
         case .travel:
             return "Then this: \(lowercase(text))."
+        case .listicle:
+            return "Number \(index + 1): \(lowercase(text))."
+        case .explainer:
+            return "Next: \(lowercase(text))."
+        case .podcast:
+            return "And this is the cut that matters: \(lowercase(text))."
         }
     }
 
@@ -285,6 +369,29 @@ public enum ScriptWriter {
                 "eat where the lunch line is local, not photographed",
                 "leave room for the wrong turn — that is usually the frame"
             ]
+        case .listicle:
+            return [
+                "the cheap version you can start tonight",
+                "the mistake that looks productive",
+                "the test that tells you if it is working by Friday",
+                "the tool you can ignore until month two",
+                "the habit that survives travel and bad sleep",
+                "the one thing to cut so the rest fits"
+            ]
+        case .explainer:
+            return [
+                "start with the outcome, not the jargon",
+                "the mechanism is simpler than the think-pieces",
+                "here is the tradeoff people skip",
+                "use this check before you spend a weekend on it",
+                "if it still fails, the input was wrong, not you"
+            ]
+        case .podcast:
+            return [
+                "the guest said the quiet part without dressing it up",
+                "the example is more useful than the theory",
+                "this is the line you can steal for your own week"
+            ]
         }
     }
 
@@ -292,17 +399,20 @@ public enum ScriptWriter {
         write(topic: topic, presetID: presetID).cta
     }
 
-    private static func defaultPointCount(presetID: String) -> Int {
+    private static func defaultPointCount(presetID: String, durationSec: Int) -> Int {
+        if durationSec >= 180 {
+            return presetID == "listicle" ? 8 : 7
+        }
         switch presetID {
-        case "luxury-brand", "cinematic-story": return 3
-        case "tutorial-steps": return 4
+        case "luxury-brand", "cinematic-story", "storytime", "motivational": return 3
+        case "tutorial-steps", "listicle", "explainer": return 5
         default: return 3
         }
     }
 
     // MARK: - Parsing helpers
 
-    private static func extractCount(from text: String) -> (count: Int, subject: String)? {
+    private static func extractCount(from text: String, maxCount: Int) -> (count: Int, subject: String)? {
         let pattern = #"^\s*(\d+)\s+(?:reasons?|ways?|tips?|steps?|things?|facts?|ideas?|features?)(?:\s+(?:why|that|to|for|your))?\s+(.+)$"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
@@ -311,7 +421,7 @@ public enum ScriptWriter {
               let subjectRange = Range(match.range(at: 2), in: text),
               let count = Int(text[countRange])
         else { return nil }
-        return (min(max(count, 2), 6), String(text[subjectRange]))
+        return (min(max(count, 2), maxCount), String(text[subjectRange]))
     }
 
     private static func extractList(from text: String) -> [String]? {
