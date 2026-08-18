@@ -78,10 +78,10 @@ public enum MusicBedSynthesizer {
         while t < frames {
             for i in 0..<min(Int(0.03 * Double(sampleRate)), frames - t) {
                 seed = seed &* 6364136223846793005 &+ 1
-                let noise = Float(Int64(seed >> 33) % 1000) / 500.0 - 1
+                let noise = Float(Int64(seed >> 33) % 1000) / 500 - 1
                 let env = exp(-Double(i) / Double(sampleRate) * 80)
                 let s = noise * gain * Float(env)
-                let pan = (i % 2 == 0) ? 0.7 : 1.0
+                let pan: Float = (i % 2 == 0) ? 0.7 : 1.0
                 left[t + i] += s * pan
                 right[t + i] += s * (1.4 - pan)
             }
@@ -124,7 +124,7 @@ public enum MusicBedSynthesizer {
                 let local = Double(i) / Double(sampleRate)
                 let env = min(1, local / 0.005) * exp(-local * 7)
                 let s = Float(sin(2 * Double.pi * note * local) * env) * gain
-                let pan = Float(step % 2 == 0 ? 0.8 : 1.15)
+                let pan: Float = step % 2 == 0 ? 0.8 : 1.15
                 left[t + i] += s * pan
                 right[t + i] += s * (1.8 - pan)
             }

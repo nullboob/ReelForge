@@ -97,12 +97,12 @@ public enum StoryboardBuilder {
         var targetCount = Int((duration / avg).rounded())
         targetCount = min(max(targetCount, 3), 16)
 
-        while result.count * minC > duration + 0.01 && result.count > 3 {
+        while Double(result.count) * minC > duration + 0.01 && result.count > 3 {
             result = mergeShortestBody(result)
         }
 
         var guardCounter = 0
-        while result.count < targetCount && result.count * maxC < duration && guardCounter < 12 {
+        while result.count < targetCount && Double(result.count) * maxC < duration && guardCounter < 12 {
             guard let idx = longestSplittableIndex(result) else { break }
             result = split(result, at: idx)
             guardCounter += 1
