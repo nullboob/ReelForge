@@ -155,7 +155,16 @@ final class Director: @unchecked Sendable {
         try Task.checkCancellation()
         await emit(.music, "Writing a \(request.preset.music.mood.rawValue) bed at \(request.preset.music.bpm) BPM")
         let musicURL = assetsDir.appendingPathComponent("music.wav")
-        try MusicBedSynthesizer.writeLoop(mood: request.preset.music.mood, bpm: request.preset.music.bpm, to: musicURL)
+        let usedACE = request.useLocalAI && await ACEStepClient.shared.generateBed(
+            mood: request.preset.music.mood.rawValue,
+            bpm: request.preset.music.bpm,
+            to: musicURL
+        )
+        if !usedACE {
+            try MusicBedSynthesizer.writeLoop(mood: request.preset.music.mood, bpm: request.preset.music.bpm, to: musicURL)
+        } else {
+            project.warnings.append("Used local ACE-Step for the music bed.")
+        }
         project.assets.removeAll { $0.kind == .music }
         project.assets.append(AssetRef(id: "music", kind: .music, relativePath: "music.wav"))
         completed.append(.music)

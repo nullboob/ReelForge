@@ -45,6 +45,35 @@ struct FootageService {
                 }
             }
 
+            if useLocalAI {
+                let prompt = "\(beat.text). \(preset.aiImageStyleSuffix)"
+                if index == 0 {
+                    let destVideo = workDir.appendingPathComponent("beat-\(index).mp4")
+                    await onProgress("Trying ComfyUI video for the hook beat")
+                    if await LocalVideoClient.shared.generateVideo(prompt: prompt, startImage: nil, to: destVideo),
+                       FileManager.default.fileExists(atPath: destVideo.path) {
+                        assignments[beat.id] = FootageAssignment(
+                            asset: AssetRef(id: "comfy-video-\(index)", kind: .video, relativePath: destVideo.lastPathComponent, beatID: beat.id),
+                            fileURL: destVideo
+                        )
+                        continue
+                    }
+                    let caps = await ComfyUIClient.shared.capabilities()
+                    if caps.online, caps.canImageToVideo {
+                        warnings.append("ComfyUI shows LTX/I2V nodes. Save an API-format workflow as Application Support/ReelForge/comfy-i2v.json to use it.")
+                    }
+                }
+                await onProgress("Asking ComfyUI for still \(index + 1)/\(beats.count)")
+                if await LocalAIClient.shared.generateImage(prompt: prompt, size: size, to: destImage),
+                   FileManager.default.fileExists(atPath: destImage.path) {
+                    assignments[beat.id] = FootageAssignment(
+                        asset: AssetRef(id: "ai-\(index)", kind: .image, relativePath: destImage.lastPathComponent, beatID: beat.id),
+                        fileURL: destImage
+                    )
+                    continue
+                }
+            }
+
             if useUnsplash, let key = unsplashKey {
                 if let photo = await UnsplashClient.shared.search(
                     query: beat.unsplashQuery,
@@ -60,18 +89,6 @@ struct FootageService {
                     attributions.append(attr)
                     assignments[beat.id] = FootageAssignment(
                         asset: AssetRef(id: photo.id, kind: .image, relativePath: destImage.lastPathComponent, beatID: beat.id, attribution: attr),
-                        fileURL: destImage
-                    )
-                    continue
-                }
-            }
-
-            if useLocalAI {
-                let prompt = "\(beat.text). \(preset.aiImageStyleSuffix)"
-                if await LocalAIClient.shared.generateImage(prompt: prompt, size: size, to: destImage),
-                   FileManager.default.fileExists(atPath: destImage.path) {
-                    assignments[beat.id] = FootageAssignment(
-                        asset: AssetRef(id: "ai-\(index)", kind: .image, relativePath: destImage.lastPathComponent, beatID: beat.id),
                         fileURL: destImage
                     )
                     continue

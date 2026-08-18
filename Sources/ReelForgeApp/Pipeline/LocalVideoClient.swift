@@ -1,15 +1,14 @@
 import Foundation
 
-/// Optional local video generators (ComfyUI / custom `/video`). Never fakes a cloud model.
+/// Local video generators. ComfyUI on 8188 is the real path (LTX / user I2V workflow).
+/// Never fakes a cloud video model. If the exact graph is missing, skip and keep exporting.
 actor LocalVideoClient {
     static let shared = LocalVideoClient()
 
     func probe() async -> Bool {
-        for raw in [
-            "http://127.0.0.1:8188/system_stats",
-            "http://127.0.0.1:8188/",
-            "http://127.0.0.1:7860/video"
-        ] {
+        let caps = await ComfyUIClient.shared.capabilities()
+        if caps.online { return true }
+        for raw in ["http://127.0.0.1:7860/video"] {
             guard let url = URL(string: raw) else { continue }
             var request = URLRequest(url: url)
             request.timeoutInterval = 0.6
@@ -22,9 +21,10 @@ actor LocalVideoClient {
         return false
     }
 
-    func generateVideo(prompt: String, to url: URL) async -> Bool {
-        _ = prompt
-        _ = url
+    func generateVideo(prompt: String, startImage: URL?, to url: URL) async -> Bool {
+        if await ComfyUIClient.shared.generateVideo(prompt: prompt, startImage: startImage, to: url) {
+            return true
+        }
         return false
     }
 }

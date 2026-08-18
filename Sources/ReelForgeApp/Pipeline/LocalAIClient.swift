@@ -3,12 +3,17 @@ import Foundation
 struct LocalAIStatus: Equatable {
     var ollama = false
     var automatic1111 = false
+    var comfyUI = false
+    var comfyDetail = ""
+    var canComfyVideo = false
+    var aceStep = false
     var mlxImage = false
     var whisper = false
     var ollamaModel: String?
 
-    var anyImage: Bool { automatic1111 || mlxImage }
+    var anyImage: Bool { comfyUI || automatic1111 || mlxImage }
     var anyLLM: Bool { ollama }
+    var anyVideo: Bool { canComfyVideo }
 }
 
 actor LocalAIClient {
@@ -23,15 +28,22 @@ actor LocalAIClient {
 
     func probe() async -> LocalAIStatus {
         async let ollama = probeOllama()
+        async let comfy = ComfyUIClient.shared.capabilities(force: true)
         async let a1111 = isUp(URL(string: "http://127.0.0.1:7860/sdapi/v1/sd-models")!)
+        async let ace = ACEStepClient.shared.probe()
         async let mlx = isUp(URL(string: "http://127.0.0.1:7861/health")!)
             || isUp(URL(string: "http://127.0.0.1:8088/health")!)
         async let whisper = isUp(URL(string: "http://127.0.0.1:9000/health")!)
             || isUp(URL(string: "http://127.0.0.1:9000/")!)
         let model = await ollama
+        let comfyCaps = await comfy
         return LocalAIStatus(
             ollama: model != nil,
             automatic1111: await a1111,
+            comfyUI: comfyCaps.online,
+            comfyDetail: comfyCaps.detail,
+            canComfyVideo: comfyCaps.canImageToVideo,
+            aceStep: await ace,
             mlxImage: await mlx,
             whisper: await whisper,
             ollamaModel: model
@@ -62,6 +74,7 @@ actor LocalAIClient {
     }
 
     func generateImage(prompt: String, size: (Int, Int), to url: URL) async -> Bool {
+        if await ComfyUIClient.shared.generateImage(prompt: prompt, size: size, to: url) { return true }
         if await generateA1111(prompt: prompt, size: size, to: url) { return true }
         if await generateGeneric(prompt: prompt, size: size, to: url) { return true }
         return false

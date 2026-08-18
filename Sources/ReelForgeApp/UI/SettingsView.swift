@@ -41,11 +41,22 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Local services")
                     .font(.system(size: 12, weight: .medium))
+                statusRow("ComfyUI", state.localStatus.comfyUI, state.localStatus.comfyDetail.isEmpty ? "http://127.0.0.1:8188" : state.localStatus.comfyDetail)
+                statusRow("ComfyUI video (LTX / I2V)", state.localStatus.canComfyVideo, "user workflow or LTX nodes")
                 statusRow("Ollama", state.localStatus.ollama, state.localStatus.ollamaModel ?? "http://127.0.0.1:11434")
-                statusRow("Automatic1111 / Comfy-style image", state.localStatus.anyImage, "http://127.0.0.1:7860")
+                statusRow("Automatic1111", state.localStatus.automatic1111, "http://127.0.0.1:7860")
+                statusRow("ACE-Step", state.localStatus.aceStep, "http://127.0.0.1:7865")
                 statusRow("Local whisper", state.localStatus.whisper, "http://127.0.0.1:9000")
                 Button("Re-scan") { state.refreshStatus() }
                     .buttonStyle(GhostButtonStyle())
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("ComfyUI workflows")
+                    .font(.system(size: 12, weight: .medium))
+                Text("ReelForge probes http://127.0.0.1:8188 first. If CheckpointLoaderSimple is installed it queues a simple T2I graph. For LTX / qwen-image-edit / I2V, export an API-format workflow from ComfyUI and save it as ~/Library/Application Support/ReelForge/comfy-t2i.json or comfy-i2v.json. If the graph is missing, Generate still finishes with Unsplash or styled cards.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(RFTheme.muted)
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -59,7 +70,7 @@ struct SettingsView: View {
             Spacer()
         }
         .padding(28)
-        .frame(width: 520, height: 520)
+        .frame(width: 560, height: 640)
         .background(RFTheme.bg)
         .onAppear {
             key = KeychainStore.string(account: KeychainStore.unsplashAccount) ?? ""

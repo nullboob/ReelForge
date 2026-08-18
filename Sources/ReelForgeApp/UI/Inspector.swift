@@ -68,7 +68,7 @@ struct Inspector: View {
                         Button("Add Unsplash key in Settings") { state.showSettings = true }
                             .buttonStyle(GhostButtonStyle())
                     }
-                    Toggle("Use local AI if available", isOn: $state.useLocalAI)
+                    Toggle("Use ComfyUI / local AI if available", isOn: $state.useLocalAI)
                     DropZone()
                     if let voice = state.voiceoverURL {
                         Text("VO: \(voice.lastPathComponent)")

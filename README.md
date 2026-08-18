@@ -14,8 +14,10 @@ Optional:
 
 - An [Unsplash](https://unsplash.com/developers) access key for still B-roll
 - [Ollama](https://ollama.com) on `localhost:11434` for script writing
-- Automatic1111 / a local `/generate` image endpoint on `127.0.0.1:7860` (or `7861` / `8088`)
-- `ffmpeg` on `PATH` as an export fallback only
+- **ComfyUI** on `http://127.0.0.1:8188` (probed first) for local image / LTX video
+- Automatic1111 on `127.0.0.1:7860` as a secondary image backend
+- ACE-Step on `127.0.0.1:7865` (optional music; programmatic beds always work)
+- `ffmpeg` on `PATH` as an export fallback only. AVFoundation is the Mac export path.
 
 Nothing optional is required to export a playable video.
 
@@ -58,8 +60,9 @@ Needs a key or a local service:
 | --- | --- | --- |
 | Unsplash stills | Styled cards | `REELFORGE_UNSPLASH_ACCESS_KEY` or Settings → Keychain |
 | LLM script | Built-in writer | Ollama at `http://127.0.0.1:11434` |
-| AI images | Styled cards | A1111 or a simple local `/generate` |
-| AI video | Skipped | Optional local generator; **no cloud video model is pretended** |
+| AI images | Styled cards | **ComfyUI `:8188` first**, then A1111 `:7860` |
+| AI video | Skipped | Live ComfyUI + LTX nodes or `comfy-i2v.json`. No cloud video model is pretended. |
+| Music | Programmatic bed | Optional ACE-Step HTTP if a `/generate` hook answers |
 | Whisper word times | Duration alignment | Optional `http://127.0.0.1:9000/asr` |
 
 The director never stalls. If a source is missing it records a warning on the project and keeps going.
@@ -84,6 +87,30 @@ ollama pull llama3.2
 
 ReelForge probes `http://127.0.0.1:11434/api/tags` and uses the first suitable model. If Ollama is down, the template writer produces a real script from the topic.
 
+## Local ComfyUI (preferred image / video backend)
+
+The Mac app talks to whatever is listening on this machine. A Windows portable ComfyUI + NVIDIA box on the LAN is fine if you port-forward `8188` to localhost, but ReelForge itself stays a native SwiftUI macOS app.
+
+Probe order:
+
+1. `GET http://127.0.0.1:8188/system_stats` then `/object_info`
+2. If `CheckpointLoaderSimple` + KSampler exist, queue a simple text-to-image graph via `POST /prompt`
+3. If LTX / I2V nodes are installed (`LTXV*`, `ltx-video-2b`, GGUF loaders, qwen-image-edit), Settings shows a video chip
+4. To actually run *your* LTX or qwen-image-edit graph, export **API format** from ComfyUI and save:
+
+```
+~/Library/Application Support/ReelForge/comfy-t2i.json
+~/Library/Application Support/ReelForge/comfy-i2v.json
+```
+
+ReelForge injects the beat prompt (and a start frame when I2V). If the exact workflow is missing, it skips video and keeps exporting with stills, Unsplash, or styled cards.
+
+Automatic1111 on `7860` is still probed as a fallback image API.
+
+## Optional ACE-Step
+
+Programmatic original-safe beds always play. If ACE-Step is up on `7865` / `8001` / `8019` and exposes a simple `/generate` JSON hook, the Director will try it once. Copyrighted music is never downloaded.
+
 ## Architecture
 
 The edit is a **JSON storyboard plus a deterministic AVFoundation renderer**. An LLM never moves frames.
@@ -92,8 +119,8 @@ The edit is a **JSON storyboard plus a deterministic AVFoundation renderer**. An
 2. **Storyboard** — beats clamped to the preset cut range
 3. **Voice** — dropped VO or `AVSpeechSynthesizer` (always produces audio)
 4. **Captions** — word-timed cards; optional local Whisper HTTP
-5. **Footage** — local files → Unsplash → local image gen → styled cards
-6. **Music** — synthesized loop, ducked under VO
+5. **Footage** — local files → ComfyUI (8188) / A1111 → Unsplash → styled cards
+6. **Music** — ACE-Step if a clean hook answers, else a synthesized loop, ducked under VO
 7. **Compose** — per-beat H.264 clips (Ken Burns, grade, burned captions) assembled with `AVMutableComposition` + `AVMutableVideoComposition`
 8. **Export** — `AVAssetExportSession` to `~/Movies/ReelForge/`; `ffmpeg` only if that fails
 
@@ -145,6 +172,6 @@ You get speech, captions, B-roll or styled cards, a pulse bed, and a file in `~/
 
 ## Notes
 
-- Music beds are synthesized at export time. No copyrighted audio is downloaded.
+- Music beds are synthesized at export time unless a local ACE-Step `/generate` hook answers. No copyrighted audio is downloaded.
 - App Sandbox is on, with Movies write, user-selected files, and outgoing network.
 - Do not put Unsplash keys in the repo. `.env` is gitignored.
