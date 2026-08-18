@@ -28,7 +28,7 @@ final class TimelinePlanTests: XCTestCase {
         let preset = try PresetCatalog.load(from: dir).first { $0.id == "product-demo" }!
         XCTAssertEqual(preset.aspect, .landscape)
         let script = ScriptWriter.write(topic: "a calmer editor", presetID: preset.id)
-        let board = StoryboardBuilder.build(script: script, preset: preset, duration: 30)
+        let board = try StoryboardBuilder.build(script: script, preset: preset, duration: 30)
         let plan = TimelinePlanner.plan(
             storyboard: board,
             preset: preset,
@@ -61,7 +61,7 @@ final class TimelinePlanTests: XCTestCase {
         let dir = try XCTUnwrap(PresetCatalog.bundledDirectory() ?? PresetCatalog.sourceTreeDirectory())
         let preset = try PresetCatalog.load(from: dir).first { $0.id == presetID }!
         let script = ScriptWriter.write(topic: "3 reasons your morning walk beats the gym", presetID: preset.id)
-        let board = StoryboardBuilder.build(script: script, preset: preset, duration: duration)
+        let board = try StoryboardBuilder.build(script: script, preset: preset, duration: duration)
         return TimelinePlanner.plan(
             storyboard: board,
             preset: preset,

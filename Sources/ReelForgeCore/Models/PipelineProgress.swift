@@ -3,6 +3,7 @@ import Foundation
 public enum PipelineStep: String, CaseIterable, Codable, Sendable {
     case script
     case storyboard
+    case review
     case voice
     case captions
     case footage
@@ -15,6 +16,7 @@ public enum PipelineStep: String, CaseIterable, Codable, Sendable {
         switch self {
         case .script: return "Script"
         case .storyboard: return "Storyboard"
+        case .review: return "Accept"
         case .voice: return "Voice"
         case .captions: return "Captions"
         case .footage: return "Footage"
@@ -29,6 +31,7 @@ public enum PipelineStep: String, CaseIterable, Codable, Sendable {
         switch self {
         case .script: return "Writing hook, body, and CTA"
         case .storyboard: return "Timing beats to the preset pace"
+        case .review: return "Accept the script before we render"
         case .voice: return "Preparing voiceover"
         case .captions: return "Building word-timed caption cards"
         case .footage: return "Collecting B-roll and styled cards"
@@ -64,7 +67,7 @@ public struct PipelineProgress: Equatable, Sendable {
         self.isFailed = isFailed
     }
 
-    public static let idle = PipelineProgress(detail: "Type a topic, pick a preset, generate.")
+    public static let idle = PipelineProgress(detail: "Type a topic, then accept the script before we render.")
 
     public func isDone(_ step: PipelineStep) -> Bool {
         completed.contains(step)

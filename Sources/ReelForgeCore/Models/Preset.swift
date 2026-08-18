@@ -123,8 +123,13 @@ public struct MusicStyle: Codable, Equatable, Sendable {
         self.duckDb = duckDb
     }
 
+    /// Duck 8–12 dB under VO. Louder than −8 or quieter than −12 gets clamped.
+    public var clampedDuckDb: Double {
+        min(-8, max(-12, duckDb))
+    }
+
     public var duckLinear: Double {
-        pow(10.0, duckDb / 20.0)
+        pow(10.0, clampedDuckDb / 20.0)
     }
 }
 

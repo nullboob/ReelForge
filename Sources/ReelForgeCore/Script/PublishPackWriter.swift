@@ -8,7 +8,8 @@ public enum PublishPackWriter {
         preset: Preset,
         channel: ChannelKit,
         series: String?,
-        target: VideoTarget
+        target: VideoTarget,
+        credits: [String] = []
     ) -> PublishPack {
         let title = makeTitle(topic: topic, script: script, series: series, channel: channel)
         let chapters = chapters(from: storyboard)
@@ -17,7 +18,8 @@ public enum PublishPackWriter {
             chapters: chapters,
             channel: channel,
             series: series,
-            target: target
+            target: target,
+            credits: credits
         )
         let tags = makeTags(topic: topic, preset: preset, channel: channel, series: series)
         let hashtags = Array(tags.prefix(4)).map { "#\($0.replacingOccurrences(of: " ", with: ""))" }
@@ -29,7 +31,8 @@ public enum PublishPackWriter {
             hashtags: hashtags,
             chapters: chapters,
             suggestedFilename: "\(slug).mp4",
-            source: .template
+            source: .template,
+            credits: credits
         )
     }
 
@@ -95,10 +98,15 @@ public enum PublishPackWriter {
     }
 
     public static func chapters(from storyboard: Storyboard) -> [ChapterMark] {
-        storyboard.beats.map { beat in
+        var marks = storyboard.beats.enumerated().map { index, beat in
             let raw = beat.text.split(separator: " ").prefix(8).joined(separator: " ")
-            return ChapterMark(id: beat.id, start: beat.start, title: raw)
+            let start = index == 0 ? 0 : beat.start
+            return ChapterMark(id: beat.id, start: start, title: raw)
         }
+        if let first = marks.first, first.start != 0 {
+            marks[0].start = 0
+        }
+        return marks
     }
 
     private static func makeTitle(topic: String, script: GeneratedScript, series: String?, channel: ChannelKit) -> String {
@@ -119,11 +127,16 @@ public enum PublishPackWriter {
         chapters: [ChapterMark],
         channel: ChannelKit,
         series: String?,
-        target: VideoTarget
+        target: VideoTarget,
+        credits: [String]
     ) -> String {
-        let hook = script.hook
+        let hook = script.hook.trimmingCharacters(in: .whitespacesAndNewlines)
         let second = script.body.first ?? script.cta
-        var lines = [hook, second, ""]
+        var lines = [hook]
+        if hook.count < 140 {
+            lines.append(second)
+        }
+        lines.append("")
         if let series, !series.isEmpty {
             lines.append("Series: \(series)")
         }
@@ -142,6 +155,13 @@ public enum PublishPackWriter {
         } else {
             lines.append("If this helped, subscribe and drop the next topic in the comments.")
         }
+        if !credits.isEmpty {
+            lines.append("")
+            lines.append("Credits")
+            lines.append(contentsOf: credits.prefix(12))
+        }
+        lines.append("")
+        lines.append("Before you upload: tick YouTube’s altered / synthetic content checkbox if the voice or visuals are generated.")
         return lines.joined(separator: "\n")
     }
 

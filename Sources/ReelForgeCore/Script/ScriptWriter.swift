@@ -18,7 +18,7 @@ public enum ScriptWriter {
 
         if lines.count >= 3 {
             return GeneratedScript(
-                hook: stripLabel(lines[0]),
+                hook: rewriteForbiddenHook(stripLabel(lines[0]), topic: text),
                 body: Array(lines.dropFirst().dropLast()).map(stripLabel),
                 cta: stripLabel(lines[lines.count - 1]),
                 source: .user
@@ -28,7 +28,7 @@ public enum ScriptWriter {
         let sentences = splitSentences(text)
         if sentences.count >= 3 {
             return GeneratedScript(
-                hook: sentences[0],
+                hook: rewriteForbiddenHook(sentences[0], topic: text),
                 body: Array(sentences.dropFirst().dropLast()),
                 cta: sentences[sentences.count - 1],
                 source: .user
@@ -68,7 +68,7 @@ public enum ScriptWriter {
         if cta.isEmpty {
             cta = defaultCTA(for: fallbackTopic, presetID: presetID)
         }
-        if isLectureHook(hook) {
+        if HookRules.isForbiddenOpen(hook) {
             hook = write(topic: fallbackTopic, presetID: presetID, source: .template).hook
         }
         return GeneratedScript(hook: hook, body: body, cta: cta, source: .ollama)
@@ -398,10 +398,11 @@ public enum ScriptWriter {
         }
     }
 
-    private static func isLectureHook(_ text: String) -> Bool {
-        let lower = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let banned = ["in this video", "today we", "welcome back", "let's talk about", "let us talk", "hey guys"]
-        return banned.contains { lower.hasPrefix($0) }
+    private static func rewriteForbiddenHook(_ hook: String, topic: String) -> String {
+        if HookRules.isForbiddenOpen(hook) {
+            return write(topic: topic, presetID: "viral-hook", source: .template).hook
+        }
+        return hook
     }
 
     private static func defaultCTA(for topic: String, presetID: String) -> String {

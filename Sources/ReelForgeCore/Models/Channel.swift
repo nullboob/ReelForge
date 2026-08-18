@@ -83,6 +83,7 @@ public struct ChannelKit: Codable, Equatable, Sendable {
     public var defaultVoice: String?
     public var defaultPresetID: String
     public var defaultAspect: AspectRatio?
+    public var musicFolderPath: String?
 
     public init(
         name: String = "",
@@ -93,7 +94,8 @@ public struct ChannelKit: Codable, Equatable, Sendable {
         outroEnabled: Bool = true,
         defaultVoice: String? = nil,
         defaultPresetID: String = "viral-hook",
-        defaultAspect: AspectRatio? = nil
+        defaultAspect: AspectRatio? = nil,
+        musicFolderPath: String? = nil
     ) {
         self.name = name
         self.primaryHex = primaryHex
@@ -104,6 +106,7 @@ public struct ChannelKit: Codable, Equatable, Sendable {
         self.defaultVoice = defaultVoice
         self.defaultPresetID = defaultPresetID
         self.defaultAspect = defaultAspect
+        self.musicFolderPath = musicFolderPath
     }
 }
 
@@ -133,9 +136,12 @@ public struct PublishPack: Codable, Equatable, Sendable {
     public var hashtags: [String]
     public var chapters: [ChapterMark]
     public var thumbnailPath: String?
+    public var thumbnailPaths: [String]
     public var srtPath: String?
     public var suggestedFilename: String
     public var source: ScriptSource
+    public var credits: [String]
+    public var syntheticReminder: String
 
     public init(
         title: String,
@@ -144,9 +150,12 @@ public struct PublishPack: Codable, Equatable, Sendable {
         hashtags: [String],
         chapters: [ChapterMark],
         thumbnailPath: String? = nil,
+        thumbnailPaths: [String] = [],
         srtPath: String? = nil,
         suggestedFilename: String,
-        source: ScriptSource
+        source: ScriptSource,
+        credits: [String] = [],
+        syntheticReminder: String = "Before upload: tick YouTube’s altered/synthetic content checkbox if the voice or visuals are generated."
     ) {
         self.title = title
         self.description = description
@@ -154,8 +163,11 @@ public struct PublishPack: Codable, Equatable, Sendable {
         self.hashtags = hashtags
         self.chapters = chapters
         self.thumbnailPath = thumbnailPath
+        self.thumbnailPaths = thumbnailPaths
         self.srtPath = srtPath
         self.suggestedFilename = suggestedFilename
         self.source = source
+        self.credits = credits
+        self.syntheticReminder = syntheticReminder
     }
 }

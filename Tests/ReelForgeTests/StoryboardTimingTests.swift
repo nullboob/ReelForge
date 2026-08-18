@@ -5,7 +5,7 @@ final class StoryboardTimingTests: XCTestCase {
     func testBeatsSumToTargetDuration() throws {
         let preset = try viral()
         let script = ScriptWriter.write(topic: "3 reasons your morning walk beats the gym", presetID: preset.id)
-        let board = StoryboardBuilder.build(script: script, preset: preset, duration: Double(preset.durationSec))
+        let board = try StoryboardBuilder.build(script: script, preset: preset, duration: Double(preset.durationSec))
         XCTAssertEqual(board.duration, Double(preset.durationSec), accuracy: 0.08)
         let sum = board.beats.reduce(0.0) { $0 + $1.duration }
         XCTAssertEqual(sum, board.duration, accuracy: 0.001)
@@ -15,7 +15,7 @@ final class StoryboardTimingTests: XCTestCase {
     func testInteriorCutsStayNearPaceRange() throws {
         let preset = try viral()
         let script = ScriptWriter.write(topic: "5 ways to ship a video tonight", presetID: preset.id)
-        let board = StoryboardBuilder.build(script: script, preset: preset, duration: 15)
+        let board = try StoryboardBuilder.build(script: script, preset: preset, duration: 15)
         let interior = board.beats.dropFirst().dropLast()
         for beat in interior {
             XCTAssertGreaterThan(beat.duration, 0.35, beat.text)
@@ -26,7 +26,7 @@ final class StoryboardTimingTests: XCTestCase {
     func testRescaleChangesDurationButKeepsOrder() throws {
         let preset = try cinematic()
         let script = ScriptWriter.write(topic: "a quiet road at dusk", presetID: preset.id)
-        let board = StoryboardBuilder.build(script: script, preset: preset, duration: 45)
+        let board = try StoryboardBuilder.build(script: script, preset: preset, duration: 45)
         let scaled = StoryboardBuilder.rescale(board, to: 22)
         XCTAssertEqual(scaled.duration, 22, accuracy: 0.05)
         XCTAssertEqual(scaled.beats.count, board.beats.count)
@@ -36,10 +36,27 @@ final class StoryboardTimingTests: XCTestCase {
         }
     }
 
+    func testMissingHookFailsBuilder() throws {
+        let greeting = GeneratedScript(hook: "Welcome back to the channel.", body: ["A later beat."], cta: "Subscribe.", source: .template)
+        let dir = try XCTUnwrap(PresetCatalog.bundledDirectory() ?? PresetCatalog.sourceTreeDirectory())
+        let preset = try PresetCatalog.load(from: dir).first { $0.id == "viral-hook" }!
+        XCTAssertThrowsError(try StoryboardBuilder.build(script: greeting, preset: preset, duration: 15)) { error in
+            XCTAssertTrue(error is StoryboardError)
+        }
+    }
+
+    func testEmptyScriptStillGetsAHookFallback() throws {
+        let empty = GeneratedScript(hook: "", body: [], cta: "", source: .template)
+        let preset = try viral()
+        let board = try StoryboardBuilder.build(script: empty, preset: preset, duration: 15)
+        XCTAssertEqual(board.beats.first?.role, .hook)
+        XCTAssertFalse(HookRules.isForbiddenOpen(board.beats.first?.text ?? ""))
+    }
+
     func testFirstHookBeatHoldsAtLeast1_5Seconds() throws {
         let preset = try viral()
         let script = ScriptWriter.write(topic: "3 reasons your morning walk beats the gym", presetID: preset.id)
-        let board = StoryboardBuilder.build(script: script, preset: preset, duration: 15)
+        let board = try StoryboardBuilder.build(script: script, preset: preset, duration: 15)
         let hook = try XCTUnwrap(board.beats.first)
         XCTAssertEqual(hook.role, .hook)
         XCTAssertGreaterThanOrEqual(hook.duration, 1.5 - 0.02)
@@ -54,7 +71,7 @@ final class StoryboardTimingTests: XCTestCase {
             cta: "Follow along.",
             source: .template
         )
-        let board = StoryboardBuilder.build(script: script, preset: preset, duration: 15)
+        let board = try StoryboardBuilder.build(script: script, preset: preset, duration: 15)
         let texts = board.beats.map(\.text)
         XCTAssertFalse(texts.contains { $0.hasPrefix("stop ends") || $0.hasPrefix("that we") })
         XCTAssertTrue(texts.contains { $0.contains("full stop") || $0.contains("After that") })
@@ -63,7 +80,7 @@ final class StoryboardTimingTests: XCTestCase {
     func testTutorialBeatsCarryStepNumbers() throws {
         let preset = try load("tutorial-steps")
         let script = ScriptWriter.write(topic: "4 steps to cut a reel", presetID: preset.id)
-        let board = StoryboardBuilder.build(script: script, preset: preset, duration: 45)
+        let board = try StoryboardBuilder.build(script: script, preset: preset, duration: 45)
         XCTAssertTrue(board.beats.contains { $0.stepNumber != nil })
     }
 

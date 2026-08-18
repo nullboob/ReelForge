@@ -11,7 +11,7 @@ final class AppState: ObservableObject {
     @Published var topic: String = ""
     @Published var aspectOverride: AspectRatio?
     @Published var durationOverride: Int?
-    @Published var useUnsplash = true
+    @Published var useUnsplash = false
     @Published var usePexels = true
     @Published var useLocalAI = true
     @Published var burnCaptions = true
@@ -39,8 +39,13 @@ final class AppState: ObservableObject {
     @Published var pexelsConfigured = false
     @Published var search = ""
     @Published var player: AVPlayer?
+    @Published var awaitingAccept = false
+    @Published var deskHook = ""
+    @Published var deskBody: [EditableLine] = []
+    @Published var deskCTA = ""
 
     private var generateTask: Task<Void, Never>?
+    private var pendingRequest: GenerateRequest?
     private let director = Director()
 
     var filteredPresets: [Preset] {
@@ -72,7 +77,10 @@ final class AppState: ObservableObject {
     var publishPack: PublishPack? { project.publishPack }
 
     var canGenerate: Bool {
-        !topic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && activePreset != nil && !isGenerating
+        !topic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && activePreset != nil
+            && !isGenerating
+            && !awaitingAccept
     }
 
     init() {
@@ -119,13 +127,23 @@ final class AppState: ObservableObject {
         player = nil
         aspectOverride = nil
         durationOverride = nil
+        awaitingAccept = false
+        pendingRequest = nil
+        deskHook = ""
+        deskBody = []
+        deskCTA = ""
     }
 
     func generate() {
         guard let preset = activePreset else { return }
         let brief = topic.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !brief.isEmpty else { return }
+        if let warning = NicheGuard.warning(for: brief) {
+            lastError = warning
+            return
+        }
         isGenerating = true
+        awaitingAccept = false
         lastError = nil
         progress = PipelineProgress(current: .script, detail: "Starting director…", fraction: 0.02)
         var next = project
@@ -173,17 +191,18 @@ final class AppState: ObservableObject {
             project: next
         )
 
+        pendingRequest = request
         generateTask = Task { [director] in
             do {
-                let result = try await director.run(request) { [weak self] snapshot in
+                let draft = try await director.draft(request) { [weak self] snapshot in
                     self?.progress = snapshot
                 }
                 guard !Task.isCancelled else { return }
-                self.project = result.project
-                self.exportURL = result.exportURL
-                self.previewURL = result.exportURL
-                self.attachPlayer(result.exportURL)
+                self.project = draft.project
+                self.populateDesk(from: draft.project)
+                self.awaitingAccept = true
                 self.isGenerating = false
+                self.progress.detail = "Accept the script to render. Nothing exports until you click Accept."
             } catch is CancellationError {
                 self.isGenerating = false
                 self.progress.detail = "Cancelled."
@@ -196,10 +215,117 @@ final class AppState: ObservableObject {
         }
     }
 
+    func acceptScript() {
+        guard awaitingAccept, var request = pendingRequest else { return }
+        if let warning = NicheGuard.warning(for: "\(deskHook) \(topic)") {
+            lastError = warning
+            return
+        }
+        if HookRules.isForbiddenOpen(deskHook) {
+            lastError = StoryboardError.missingHook.errorDescription
+            return
+        }
+        guard applyDeskToProject() else { return }
+        var next = project
+        next.scriptAccepted = true
+        next.voiceIdentifier = voiceIdentifier
+        project = next
+        request.project = next
+        request.voiceIdentifier = voiceIdentifier
+        pendingRequest = request
+        awaitingAccept = false
+        isGenerating = true
+        lastError = nil
+
+        generateTask = Task { [director] in
+            do {
+                let result = try await director.compose(request) { [weak self] snapshot in
+                    self?.progress = snapshot
+                }
+                guard !Task.isCancelled else { return }
+                self.project = result.project
+                self.exportURL = result.exportURL
+                self.previewURL = result.exportURL
+                self.attachPlayer(result.exportURL)
+                self.isGenerating = false
+                self.advanceBatchIfNeeded()
+            } catch is CancellationError {
+                self.isGenerating = false
+                self.progress.detail = "Cancelled."
+            } catch {
+                self.lastError = error.localizedDescription
+                self.progress.isFailed = true
+                self.progress.detail = error.localizedDescription
+                self.isGenerating = false
+            }
+        }
+    }
+
+    func populateDesk(from project: Project) {
+        deskHook = project.script?.hook ?? ""
+        deskBody = (project.script?.body ?? []).map { EditableLine(text: $0) }
+        deskCTA = project.script?.cta ?? ""
+    }
+
+    @discardableResult
+    func applyDeskToProject() -> Bool {
+        let script = GeneratedScript(
+            hook: deskHook,
+            body: deskBody.map(\.text).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
+            cta: deskCTA,
+            source: .user
+        )
+        project.script = script
+        guard let preset = activePreset else {
+            lastError = "Pick a preset before accepting the script."
+            return false
+        }
+        do {
+            var board = try StoryboardBuilder.build(
+                script: script,
+                preset: preset,
+                duration: Double(resolvedDuration)
+            )
+            board = StoryboardBuilder.appendingOutro(
+                board,
+                channelName: channelKit.name,
+                enabled: channelKit.outroEnabled
+            )
+            project.storyboard = board
+            let fresh = CaptionSplitter.cues(
+                from: script,
+                duration: board.duration,
+                maxWordsPerCard: CaptionSafeArea.maxWords(
+                    forPresetID: preset.id,
+                    requested: preset.captionStyle.maxWordsPerCard
+                ),
+                storyboard: board
+            )
+            if project.captions.count == fresh.count {
+                var merged = fresh
+                for index in merged.indices {
+                    merged[index].text = project.captions[index].text
+                }
+                project.captions = merged
+            } else if project.captions.isEmpty {
+                project.captions = fresh
+            }
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            return false
+        }
+    }
+
+    func addDeskBodyLine() {
+        deskBody.append(EditableLine(text: ""))
+    }
+
     func cancel() {
         generateTask?.cancel()
         generateTask = nil
         isGenerating = false
+        awaitingAccept = false
     }
 
     func attachPlayer(_ url: URL) {
@@ -265,6 +391,17 @@ final class AppState: ObservableObject {
         }
     }
 
+    func pickMusicFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            channelKit.musicFolderPath = url.path
+            persistChannel()
+        }
+    }
+
     func pickChannelLogo() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
@@ -295,21 +432,29 @@ final class AppState: ObservableObject {
             return
         }
         batchItems = topics.map { BatchItem(topic: $0) }
-        Task {
-            for index in batchItems.indices {
-                guard !Task.isCancelled else { return }
-                topic = batchItems[index].topic
-                project = Project()
-                batchItems[index].status = .running
-                generate()
-                while isGenerating {
-                    try? await Task.sleep(nanoseconds: 400_000_000)
-                }
-                batchItems[index].status = lastError == nil ? .done : .failed
-                batchItems[index].exportURL = exportURL
-            }
-        }
+        startNextBatchDraft()
     }
+
+    private func startNextBatchDraft() {
+        guard let index = batchItems.firstIndex(where: { $0.status == .idle }) else { return }
+        topic = batchItems[index].topic
+        project = Project()
+        batchItems[index].status = .running
+        generate()
+    }
+
+    private func advanceBatchIfNeeded() {
+        if let index = batchItems.firstIndex(where: { $0.status == .running }) {
+            batchItems[index].status = lastError == nil ? .done : .failed
+            batchItems[index].exportURL = exportURL
+        }
+        startNextBatchDraft()
+    }
+}
+
+struct EditableLine: Identifiable, Equatable {
+    var id = UUID()
+    var text: String
 }
 
 struct BatchItem: Identifiable, Equatable {

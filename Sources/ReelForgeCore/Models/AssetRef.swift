@@ -14,19 +14,22 @@ public struct UnsplashAttribution: Codable, Equatable, Sendable {
     public var photographerURL: String
     public var photoURL: String
     public var beatID: String
+    public var clipID: String?
 
     public init(
         source: String = "unsplash",
         photographer: String,
         photographerURL: String,
         photoURL: String,
-        beatID: String
+        beatID: String,
+        clipID: String? = nil
     ) {
         self.source = source
         self.photographer = photographer
         self.photographerURL = photographerURL
         self.photoURL = photoURL
         self.beatID = beatID
+        self.clipID = clipID
     }
 }
 

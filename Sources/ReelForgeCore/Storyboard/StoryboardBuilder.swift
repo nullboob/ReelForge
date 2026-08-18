@@ -1,11 +1,22 @@
 import Foundation
 
+public enum StoryboardError: Error, LocalizedError {
+    case missingHook
+
+    public var errorDescription: String? {
+        switch self {
+        case .missingHook:
+            return "The first beat must be a hook scene — on-screen claim, VO start, picture change. No logo open."
+        }
+    }
+}
+
 public enum StoryboardBuilder {
     public static func build(
         script: GeneratedScript,
         preset: Preset,
         duration: Double
-    ) -> Storyboard {
+    ) throws -> Storyboard {
         let target = max(8, duration)
         var raw = rawUnits(from: script, numbered: preset.titleCard.numbered)
         raw = fitCount(raw, pace: preset.pace, duration: target)
@@ -50,7 +61,32 @@ public enum StoryboardBuilder {
             cursor += duration
         }
 
+        guard let first = beats.first, case .hook = first.role else {
+            throw StoryboardError.missingHook
+        }
+        if HookRules.isForbiddenOpen(first.text) {
+            throw StoryboardError.missingHook
+        }
         return Storyboard(beats: beats, duration: cursor, presetID: preset.id)
+    }
+
+    /// Outro only. Never prepend a logo / channel intro before the hook.
+    public static func appendingOutro(_ board: Storyboard, channelName: String, enabled: Bool) -> Storyboard {
+        guard enabled else { return board }
+        var beats = board.beats
+        var duration = board.duration
+        let outro = Beat(
+            id: "outro",
+            index: beats.count,
+            role: .cta,
+            text: channelName.isEmpty ? "Subscribe for the next one." : "Subscribe to \(channelName).",
+            start: duration,
+            duration: 2.4,
+            unsplashQuery: "dark studio subscribe"
+        )
+        beats.append(outro)
+        duration += 2.4
+        return Storyboard(beats: beats, duration: duration, presetID: board.presetID)
     }
 
     public static func rescale(_ storyboard: Storyboard, to duration: Double) -> Storyboard {

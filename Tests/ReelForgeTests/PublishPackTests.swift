@@ -6,7 +6,7 @@ final class PublishPackTests: XCTestCase {
         let dir = try XCTUnwrap(PresetCatalog.bundledDirectory() ?? PresetCatalog.sourceTreeDirectory())
         let preset = try PresetCatalog.load(from: dir).first { $0.id == "listicle" }!
         let script = ScriptWriter.write(topic: "7 ways to start a faceless channel", presetID: preset.id, durationSec: 45)
-        let board = StoryboardBuilder.build(script: script, preset: preset, duration: 45)
+        let board = try StoryboardBuilder.build(script: script, preset: preset, duration: 45)
         let pack = PublishPackWriter.write(
             topic: "7 ways to start a faceless channel",
             script: script,
@@ -22,6 +22,10 @@ final class PublishPackTests: XCTestCase {
         XCTAssertEqual(pack.chapters.count, board.beats.count)
         XCTAssertTrue(pack.suggestedFilename.hasSuffix(".mp4"))
         XCTAssertTrue(pack.description.contains("0:00") || pack.chapters.first?.timestamp == "0:00")
+        XCTAssertEqual(pack.chapters.first?.timestamp, "0:00")
+        let first150 = String(pack.description.prefix(150))
+        XCTAssertTrue(first150.contains(String(script.hook.prefix(20))))
+        XCTAssertTrue(pack.description.lowercased().contains("synthetic") || pack.syntheticReminder.lowercased().contains("synthetic"))
     }
 
     func testSRTCoversCues() {
@@ -43,9 +47,35 @@ final class PublishPackTests: XCTestCase {
 
     func testCaptionSafeAreaClearsShortsChrome() {
         let safe = CaptionSafeArea.rect(width: 1080, height: 1920)
-        XCTAssertGreaterThanOrEqual(safe.y / 1920, 0.11)
+        XCTAssertGreaterThanOrEqual(safe.y / 1920, 0.14)
+        XCTAssertGreaterThanOrEqual((1920 - (safe.y + safe.height)) / 1920, 0.14)
         XCTAssertLessThanOrEqual((safe.x + safe.width) / 1080, 0.83)
-        XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 12), 7)
+        XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 12), 6)
+        XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 2), 3)
+    }
+
+    func testMusicDuckStaysEightToTwelveDb() {
+        let quiet = MusicStyle(mood: .pulse, bpm: 120, duckDb: -20)
+        let loud = MusicStyle(mood: .pulse, bpm: 120, duckDb: -4)
+        let mid = MusicStyle(mood: .pulse, bpm: 120, duckDb: -10)
+        XCTAssertEqual(quiet.clampedDuckDb, -12, accuracy: 0.001)
+        XCTAssertEqual(loud.clampedDuckDb, -8, accuracy: 0.001)
+        XCTAssertEqual(mid.clampedDuckDb, -10, accuracy: 0.001)
+        XCTAssertGreaterThan(quiet.duckLinear, 0)
+        XCTAssertLessThan(quiet.duckLinear, loud.duckLinear)
+    }
+
+    func testStockQuerySkipsGenericFirstPage() {
+        let rewritten = StockQueryHygiene.specificQuery("office handshake")
+        XCTAssertTrue(rewritten.contains("documentary"))
+        XCTAssertNotEqual(rewritten, "office handshake")
+        XCTAssertEqual(StockQueryHygiene.specificQuery("rainy alley neon"), "rainy alley neon")
+    }
+
+    func testHookRulesRejectGreetingOpens() {
+        XCTAssertTrue(HookRules.isForbiddenOpen("Welcome back to the channel"))
+        XCTAssertTrue(HookRules.isForbiddenOpen("In this video we discuss walking"))
+        XCTAssertFalse(HookRules.isForbiddenOpen("Stop scrolling. Your walk wins."))
     }
 
     func testFourteenPresetsLoad() throws {

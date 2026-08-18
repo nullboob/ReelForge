@@ -56,6 +56,22 @@ final class ScriptWriterTests: XCTestCase {
         XCTAssertFalse(script.cta.isEmpty)
     }
 
+    func testNicheGuardBlocksImpersonation() {
+        XCTAssertNotNil(NicheGuard.warning(for: "as a doctor I recommend this supplement"))
+        XCTAssertNil(NicheGuard.warning(for: "3 reasons your morning walk beats the gym"))
+    }
+
+    func testWelcomeBackUserScriptIsRewritten() {
+        let text = """
+        Welcome back to the channel.
+        The first idea is walking before coffee.
+        Go try it tomorrow morning.
+        """
+        let script = ScriptWriter.parseUserScript(text)
+        XCTAssertFalse(HookRules.isForbiddenOpen(script.hook))
+        XCTAssertFalse(script.hook.lowercased().hasPrefix("welcome"))
+    }
+
     func testLectureHookIsReplaced() {
         let raw = """
         HOOK: In this video we will discuss walking.

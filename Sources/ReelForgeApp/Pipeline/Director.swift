@@ -25,6 +25,10 @@ struct GenerateRequest: Sendable {
     var project: Project
 }
 
+struct DraftResult: Sendable {
+    var project: Project
+}
+
 struct GenerateResult: Sendable {
     var project: Project
     var exportURL: URL
@@ -37,39 +41,45 @@ final class Director: @unchecked Sendable {
     private let captionService = CaptionService()
     private let footageService = FootageService()
 
-    func run(
+    /// Script + storyboard + caption draft. Stops for human Accept.
+    func draft(
         _ request: GenerateRequest,
         progress: @escaping @MainActor (PipelineProgress) -> Void
-    ) async throws -> GenerateResult {
+    ) async throws -> DraftResult {
         var project = request.project
         project.updatedAt = Date()
         project.presetID = request.preset.id
         project.topic = request.topic
+        project.scriptAccepted = false
         project.warnings = []
-        let workDir = try ProjectStore.prepare(project)
-        let assetsDir = ProjectStore.assetsDirectory(for: project.id)
+        project.voiceIdentifier = request.voiceIdentifier
+        _ = try ProjectStore.prepare(project)
         var completed: [PipelineStep] = []
 
-        func emit(_ step: PipelineStep, _ detail: String, extra: Double = 0) async {
+        func emit(_ step: PipelineStep, _ detail: String) async {
             let base = Double(completed.count) / Double(PipelineStep.allCases.count)
-            let snapshot = PipelineProgress(
-                current: step,
-                completed: completed,
-                detail: detail,
-                fraction: min(0.98, base + extra)
-            )
-            await progress(snapshot)
+            await progress(PipelineProgress(current: step, completed: completed, detail: detail, fraction: min(0.35, base)))
         }
 
         try Task.checkCancellation()
         await emit(.script, PipelineStep.script.defaultDetail)
-        let (script, scriptWarnings) = await scriptService.write(
+        var (script, scriptWarnings) = await scriptService.write(
             topic: request.topic,
             preset: request.preset,
             preferOllama: request.useLocalAI,
             durationSec: request.duration,
             channelType: request.channelType
         )
+        if HookRules.isForbiddenOpen(script.hook) {
+            let fallback = ScriptWriter.write(
+                topic: request.topic,
+                presetID: request.preset.id,
+                durationSec: request.duration,
+                channelType: request.channelType
+            )
+            script.hook = fallback.hook
+            project.warnings.append("Replaced a greeting / lecture open with a hook claim.")
+        }
         project.script = script
         project.warnings.append(contentsOf: scriptWarnings)
         completed.append(.script)
@@ -77,18 +87,68 @@ final class Director: @unchecked Sendable {
 
         try Task.checkCancellation()
         await emit(.storyboard, "Timing beats to \(request.preset.pace.cutMinSec)–\(request.preset.pace.cutMaxSec)s cuts")
-        var storyboard = StoryboardBuilder.build(
+        var storyboard = try StoryboardBuilder.build(
             script: script,
             preset: request.preset,
             duration: Double(request.duration)
         )
-        storyboard = applyChannelBookends(storyboard, channel: request.channel)
+        storyboard = StoryboardBuilder.appendingOutro(
+            storyboard,
+            channelName: request.channel.name,
+            enabled: request.channel.outroEnabled
+        )
+        guard let first = storyboard.beats.first, case .hook = first.role else {
+            throw StoryboardError.missingHook
+        }
         project.storyboard = storyboard
         completed.append(.storyboard)
         try ProjectStore.save(project)
 
+        await emit(.review, "Draft captions for the script desk")
+        let captionResult = await captionService.cues(
+            script: script,
+            storyboard: storyboard,
+            preset: request.preset,
+            voiceURL: nil,
+            allowLocalWhisper: false
+        )
+        project.captions = captionResult.cues
+        completed.append(.review)
+        try ProjectStore.save(project)
+
+        await progress(PipelineProgress(
+            current: .review,
+            completed: completed,
+            detail: "Accept the script to render. Nothing exports until you click Accept.",
+            fraction: 0.28
+        ))
+        return DraftResult(project: project)
+    }
+
+    /// Voice, stock, music, compose, publish pack. Requires an accepted script.
+    func compose(
+        _ request: GenerateRequest,
+        progress: @escaping @MainActor (PipelineProgress) -> Void
+    ) async throws -> GenerateResult {
+        var project = request.project
+        guard project.scriptAccepted, let script = project.script, var storyboard = project.storyboard else {
+            throw ExportError.exportFailed("Accept the script before compose.")
+        }
+        guard let first = storyboard.beats.first, case .hook = first.role else {
+            throw StoryboardError.missingHook
+        }
+
+        let workDir = try ProjectStore.prepare(project)
+        let assetsDir = ProjectStore.assetsDirectory(for: project.id)
+        var completed: [PipelineStep] = [.script, .storyboard, .review]
+
+        func emit(_ step: PipelineStep, _ detail: String, extra: Double = 0) async {
+            let base = Double(completed.count) / Double(PipelineStep.allCases.count)
+            await progress(PipelineProgress(current: step, completed: completed, detail: detail, fraction: min(0.98, base + extra)))
+        }
+
         try Task.checkCancellation()
-        await emit(.voice, request.voiceoverURL == nil ? "Generating speech with the system voice" : "Using your dropped voiceover")
+        await emit(.voice, request.voiceoverURL == nil ? "Kokoro, then Mac voice" : "Using your dropped voiceover")
         let voiceURL = assetsDir.appendingPathComponent("voice.wav")
         var voiceDuration: Double
         if let provided = request.voiceoverURL {
@@ -132,27 +192,30 @@ final class Director: @unchecked Sendable {
         project.assets.append(AssetRef(id: "voice", kind: .voiceover, relativePath: "voice.wav"))
         if abs(voiceDuration - storyboard.duration) > 0.8 {
             storyboard = StoryboardBuilder.rescale(storyboard, to: voiceDuration)
+            guard case .hook = storyboard.beats.first?.role else { throw StoryboardError.missingHook }
             project.storyboard = storyboard
         }
         completed.append(.voice)
         try ProjectStore.save(project)
 
         try Task.checkCancellation()
-        await emit(.captions, "Burning captions")
-        let captionResult = await captionService.cues(
-            script: script,
-            storyboard: storyboard,
-            preset: request.preset,
-            voiceURL: voiceURL,
-            allowLocalWhisper: request.useLocalAI
-        )
-        project.captions = captionResult.cues
-        if let warning = captionResult.warning { project.warnings.append(warning) }
+        await emit(.captions, "Keeping your accepted caption text")
+        if project.captions.isEmpty {
+            let captionResult = await captionService.cues(
+                script: script,
+                storyboard: storyboard,
+                preset: request.preset,
+                voiceURL: voiceURL,
+                allowLocalWhisper: request.useLocalAI
+            )
+            project.captions = captionResult.cues
+            if let warning = captionResult.warning { project.warnings.append(warning) }
+        }
         completed.append(.captions)
         try ProjectStore.save(project)
 
         try Task.checkCancellation()
-        await emit(.footage, "Collecting B-roll and styled cards")
+        await emit(.footage, "Pexels video first, then optional local AI, then cards")
         let footage = await footageService.gather(
             beats: storyboard.beats,
             preset: request.preset,
@@ -176,21 +239,59 @@ final class Director: @unchecked Sendable {
         try ProjectStore.save(project)
 
         try Task.checkCancellation()
-        await emit(.music, "Writing a \(request.preset.music.mood.rawValue) bed at \(request.preset.music.bpm) BPM")
+        await emit(.music, "Original-safe bed, ducked 8–12 dB under VO")
         let musicURL = assetsDir.appendingPathComponent("music.wav")
-        let usedACE = request.useLocalAI && await ACEStepClient.shared.generateBed(
-            mood: request.preset.music.mood.rawValue,
-            bpm: request.preset.music.bpm,
-            to: musicURL
-        )
-        if !usedACE {
-            try MusicBedSynthesizer.writeLoop(mood: request.preset.music.mood, bpm: request.preset.music.bpm, to: musicURL)
-        } else {
-            project.warnings.append("Used local ACE-Step for the music bed.")
-        }
+        let musicSource = try resolveMusic(channel: request.channel, preset: request.preset, to: musicURL)
         project.assets.removeAll { $0.kind == .music }
         project.assets.append(AssetRef(id: "music", kind: .music, relativePath: "music.wav"))
         completed.append(.music)
+
+        var ledger = footage.attributions.enumerated().map { index, attr in
+            LicenseEntry(
+                id: "visual-\(index)",
+                kind: "visual",
+                source: attr.source,
+                license: attr.source == "pexels" ? "Pexels License" : "Unsplash License (manual still)",
+                clipID: attr.clipID,
+                credit: "\(attr.photographer) / \(attr.source)",
+                beatID: attr.beatID
+            )
+        }
+        for (beatID, assignment) in footage.assignments where assignment.asset.kind == .generatedCard {
+            ledger.append(LicenseEntry(
+                id: assignment.asset.id,
+                kind: "visual",
+                source: "reelforge-card",
+                license: "Generated in-app",
+                credit: "Styled card",
+                beatID: beatID
+            ))
+        }
+        for (beatID, assignment) in footage.assignments where assignment.asset.kind == .video && assignment.asset.id.hasPrefix("local") {
+            ledger.append(LicenseEntry(
+                id: assignment.asset.id,
+                kind: "visual",
+                source: "user-local",
+                license: "User provided",
+                credit: "Local file",
+                beatID: beatID
+            ))
+        }
+        ledger.append(LicenseEntry(
+            id: "music",
+            kind: "audio",
+            source: musicSource,
+            license: musicSource == "user-folder" ? "User imported" : "Original-safe bundled bed",
+            credit: musicSource == "user-folder" ? "Imported music folder" : "ReelForge \(request.preset.music.mood.rawValue) bed"
+        ))
+        ledger.append(LicenseEntry(
+            id: "voice",
+            kind: "audio",
+            source: project.ttsEngine ?? "AVSpeech",
+            license: "Generated voiceover",
+            credit: project.ttsEngine ?? "AVSpeech"
+        ))
+        project.licenseLedger = ledger
         try ProjectStore.save(project)
 
         try Task.checkCancellation()
@@ -205,12 +306,9 @@ final class Director: @unchecked Sendable {
             voicePath: voiceURL.path,
             voiceDuration: voiceDuration,
             musicPath: musicURL.path,
-            musicVolume: 0.20 * request.preset.music.duckLinear
+            musicVolume: request.preset.music.duckLinear
         )
-        if request.channel.introSeconds > 0.05, var voice = plan.voice {
-            voice.start = request.channel.introSeconds
-            plan.voice = voice
-        }
+        // VO starts at 0 with the hook. No music-only or logo open.
 
         var renderedClips: [URL] = []
         let canvas = CGSize(width: plan.width, height: plan.height)
@@ -221,16 +319,8 @@ final class Director: @unchecked Sendable {
             let out = assetsDir.appendingPathComponent("clip-\(index).mp4")
             let assignment = footage.assignments[clip.beatID]
             let beat = storyboard.beats.first { $0.id == clip.beatID }
-            let beatCaptions = request.burnCaptions ? project.captions.map { cue in
-                CaptionCue(
-                    id: cue.id,
-                    text: cue.text,
-                    start: cue.start,
-                    duration: cue.duration,
-                    words: cue.words,
-                    highlightWordIndex: cue.highlightWordIndex
-                )
-            } : []
+            let beatCaptions = request.burnCaptions ? project.captions : []
+            let clipLogo = clip.start < 1.5 ? nil : logo
             if assignment?.asset.kind == .video, let file = assignment?.fileURL {
                 try await ClipWriter.writeVideo(
                     source: file,
@@ -244,14 +334,14 @@ final class Director: @unchecked Sendable {
                     titleStyle: request.preset.titleCard,
                     stepNumber: clip.stepNumber,
                     timelineOffset: clip.start,
-                    logo: logo,
+                    logo: clipLogo,
                     outputURL: out
                 )
             } else {
                 let fallbackBeat = beat ?? Beat(
                     id: clip.beatID,
                     index: index,
-                    role: .body(index),
+                    role: .hook,
                     text: script.hook,
                     start: clip.start,
                     duration: clip.duration,
@@ -279,7 +369,7 @@ final class Director: @unchecked Sendable {
                     titleStyle: request.preset.titleCard,
                     stepNumber: clip.stepNumber,
                     timelineOffset: clip.start,
-                    logo: logo,
+                    logo: clipLogo,
                     outputURL: out
                 )
             }
@@ -291,6 +381,7 @@ final class Director: @unchecked Sendable {
 
         try Task.checkCancellation()
         await emit(.package, "Building the YouTube publish pack")
+        let credits = ledger.map(\.credit)
         var pack = PublishPackWriter.write(
             topic: request.topic,
             script: script,
@@ -298,7 +389,8 @@ final class Director: @unchecked Sendable {
             preset: request.preset,
             channel: request.channel,
             series: request.seriesName,
-            target: request.target
+            target: request.target,
+            credits: credits
         )
         if request.useLocalAI {
             let status = await LocalAIClient.shared.probe()
@@ -312,14 +404,19 @@ final class Director: @unchecked Sendable {
                 pack = PublishPackWriter.parseModelOutput(raw, fallback: pack)
             }
         }
-        let thumbURL = assetsDir.appendingPathComponent("thumbnail.jpg")
-        ThumbnailRenderer.render(
-            hook: PublishPackWriter.thumbnailHeadline(from: script.hook),
-            channel: request.channel,
-            preset: request.preset,
-            to: thumbURL
-        )
-        pack.thumbnailPath = thumbURL.path
+        let headlines = [
+            PublishPackWriter.thumbnailHeadline(from: script.hook),
+            PublishPackWriter.thumbnailHeadline(from: request.topic),
+            PublishPackWriter.thumbnailHeadline(from: script.body.first ?? script.hook)
+        ]
+        var thumbPaths: [String] = []
+        for (index, headline) in headlines.enumerated() {
+            let thumbURL = assetsDir.appendingPathComponent("thumbnail-\(index + 1).jpg")
+            ThumbnailRenderer.render(hook: headline, channel: request.channel, preset: request.preset, to: thumbURL)
+            thumbPaths.append(thumbURL.path)
+        }
+        pack.thumbnailPaths = thumbPaths
+        pack.thumbnailPath = thumbPaths.first
         if request.exportSRT {
             let srtURL = assetsDir.appendingPathComponent("captions.srt")
             try? SRTWriter.write(cues: project.captions, to: srtURL)
@@ -340,11 +437,20 @@ final class Director: @unchecked Sendable {
             fallbackAudio: [voiceURL, musicURL]
         )
         project.exportPath = exportURL.path
-        if let thumb = pack.thumbnailPath {
-            let dest = exportURL.deletingPathExtension().appendingPathExtension("jpg")
+        var copiedThumbs: [String] = []
+        let exportBase = exportURL.deletingPathExtension()
+        for (index, thumb) in thumbPaths.enumerated() {
+            let dest = exportBase.deletingLastPathComponent()
+                .appendingPathComponent("\(exportBase.lastPathComponent)-thumb\(index + 1).jpg")
             copyReplacing(URL(fileURLWithPath: thumb), to: dest)
+            copiedThumbs.append(dest.path)
+        }
+        if let first = copiedThumbs.first {
+            let dest = exportURL.deletingPathExtension().appendingPathExtension("jpg")
+            copyReplacing(URL(fileURLWithPath: first), to: dest)
             pack.thumbnailPath = dest.path
         }
+        pack.thumbnailPaths = copiedThumbs
         if let srt = pack.srtPath {
             let dest = exportURL.deletingPathExtension().appendingPathExtension("srt")
             copyReplacing(URL(fileURLWithPath: srt), to: dest)
@@ -352,6 +458,9 @@ final class Director: @unchecked Sendable {
         }
         if let data = try? JSONEncoder().encode(pack) {
             try? data.write(to: exportURL.deletingPathExtension().appendingPathExtension("json"))
+        }
+        if let data = try? JSONEncoder().encode(ledger) {
+            try? data.write(to: exportURL.deletingPathExtension().appendingPathExtension("credits.json"))
         }
         project.publishPack = pack
         project.updatedAt = Date()
@@ -371,53 +480,39 @@ final class Director: @unchecked Sendable {
 
     private func spokenText(_ script: GeneratedScript, pause: Double) -> String {
         let gap = pause > 0.05 ? String(repeating: ". ", count: max(1, Int(pause * 4))) : " "
-        return script.spokenLines.joined(separator: gap)
+        let joined = script.spokenLines.joined(separator: gap)
+        return joined.replacingOccurrences(of: ", ", with: ", … ")
     }
 
-    private func applyChannelBookends(_ board: Storyboard, channel: ChannelKit) -> Storyboard {
-        var beats = board.beats
-        var duration = board.duration
-        if channel.introSeconds > 0.05 {
-            let shift = channel.introSeconds
-            beats = beats.map { beat in
-                var next = beat
-                next.start += shift
-                next.index += 1
-                return next
+    private func resolveMusic(channel: ChannelKit, preset: Preset, to url: URL) throws -> String {
+        if let folder = channel.musicFolderPath, !folder.isEmpty {
+            let dir = URL(fileURLWithPath: folder)
+            let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+            let audio = files.filter { ["wav", "m4a", "mp3", "aiff", "caf"].contains($0.pathExtension.lowercased()) }
+            if let pick = audio.first {
+                if FileManager.default.fileExists(atPath: url.path) {
+                    try? FileManager.default.removeItem(at: url)
+                }
+                try FileManager.default.copyItem(at: pick, to: url)
+                return "user-folder"
             }
-            let intro = Beat(
-                id: "intro",
-                index: 0,
-                role: .hook,
-                text: channel.name.isEmpty ? "ReelForge" : channel.name,
-                start: 0,
-                duration: shift,
-                unsplashQuery: "abstract cinematic texture"
-            )
-            beats.insert(intro, at: 0)
-            duration += shift
         }
-        if channel.outroEnabled {
-            let outro = Beat(
-                id: "outro",
-                index: beats.count,
-                role: .cta,
-                text: channel.name.isEmpty ? "Subscribe for the next one." : "Subscribe to \(channel.name).",
-                start: duration,
-                duration: 2.4,
-                unsplashQuery: "dark studio subscribe"
-            )
-            beats.append(outro)
-            duration += 2.4
-        }
-        return Storyboard(beats: beats, duration: duration, presetID: board.presetID)
+        try MusicBedSynthesizer.writeLoop(mood: preset.music.mood, bpm: preset.music.bpm, to: url)
+        return "bundled-bed"
     }
 
     private func copyReplacing(_ from: URL, to dest: URL) {
         if FileManager.default.fileExists(atPath: dest.path) {
             try? FileManager.default.removeItem(at: dest)
         }
+        try? dest.deletingLastPathComponent().createDirectoryIfNeeded()
         try? FileManager.default.copyItem(at: from, to: dest)
+    }
+}
+
+private extension URL {
+    func createDirectoryIfNeeded() throws {
+        try FileManager.default.createDirectory(at: self, withIntermediateDirectories: true)
     }
 }
 

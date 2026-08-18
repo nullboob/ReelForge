@@ -11,11 +11,19 @@ struct PexelsClip: Sendable {
 actor PexelsClient {
     static let shared = PexelsClient()
 
-    func search(query: String, accessKey: String, portrait: Bool) async -> PexelsClip? {
+    func search(
+        query: String,
+        accessKey: String,
+        portrait: Bool,
+        page: Int = 2,
+        excluding: Set<Int> = []
+    ) async -> PexelsClip? {
+        let cleaned = StockQueryHygiene.specificQuery(query)
         var components = URLComponents(string: "https://api.pexels.com/videos/search")
         components?.queryItems = [
-            URLQueryItem(name: "query", value: query),
-            URLQueryItem(name: "per_page", value: "8"),
+            URLQueryItem(name: "query", value: cleaned),
+            URLQueryItem(name: "per_page", value: "12"),
+            URLQueryItem(name: "page", value: String(max(2, page))),
             URLQueryItem(name: "orientation", value: portrait ? "portrait" : "landscape")
         ]
         guard let url = components?.url else { return nil }
@@ -25,9 +33,14 @@ actor PexelsClient {
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse, http.statusCode == 200,
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let videos = json["videos"] as? [[String: Any]],
-              let first = videos.randomElement() ?? videos.first
+              let videos = json["videos"] as? [[String: Any]]
         else { return nil }
+
+        let unused = videos.filter { video in
+            let id = video["id"] as? Int ?? 0
+            return id > 0 && !excluding.contains(id)
+        }
+        guard let first = unused.randomElement() ?? unused.first ?? videos.first else { return nil }
 
         let files = (first["video_files"] as? [[String: Any]]) ?? []
         let preferred = files.first { ($0["quality"] as? String) == "hd" } ?? files.first

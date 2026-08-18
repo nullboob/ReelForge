@@ -40,14 +40,10 @@ actor LocalAIClient {
             || isUp(URL(string: "http://127.0.0.1:9000/")!)
         async let kokoro = isUp(URL(string: "http://127.0.0.1:8880/v1/models")!)
             || isUp(URL(string: "http://127.0.0.1:8880/")!)
-        let piper = SpeechService.piperAvailable()
         let model = await ollama
         let comfyCaps = await comfy
         let kokoroUp = await kokoro
-        let tts: String
-        if kokoroUp { tts = "Kokoro" }
-        else if piper { tts = "Piper" }
-        else { tts = "AVSpeech" }
+        let tts = kokoroUp ? "Kokoro" : "AVSpeech"
         return LocalAIStatus(
             ollama: model != nil,
             automatic1111: await a1111,
@@ -58,7 +54,7 @@ actor LocalAIClient {
             mlxImage: await mlx,
             whisper: await whisper,
             kokoro: kokoroUp,
-            piper: piper,
+            piper: false,
             ttsEngine: tts,
             ollamaModel: model
         )

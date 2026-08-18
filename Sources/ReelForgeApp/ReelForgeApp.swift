@@ -21,10 +21,13 @@ struct ReelForgeApp: App {
                     .keyboardShortcut("n", modifiers: .command)
             }
             CommandMenu("Generate") {
-                Button(state.isGenerating ? "Cancel" : "Generate Reel") {
+                Button(state.isGenerating ? "Cancel" : "Draft Script") {
                     if state.isGenerating { state.cancel() } else { state.generate() }
                 }
                 .keyboardShortcut("r", modifiers: .command)
+                Button("Accept Script") { state.acceptScript() }
+                    .keyboardShortcut("return", modifiers: .command)
+                    .disabled(!state.awaitingAccept)
                 Button("Export Again") { state.revealExport() }
                     .keyboardShortcut("e", modifiers: .command)
                     .disabled(state.exportURL == nil)

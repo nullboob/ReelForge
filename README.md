@@ -1,8 +1,10 @@
 # ReelForge
 
-A native macOS app for people starting a YouTube channel. Type a topic, pick a preset, hit **Generate**. ReelForge writes the script, speaks it, burns captions, lays B-roll, ducks music, and hands you a publish-ready MP4 plus a **Publish pack** (title, description, tags, chapters, thumbnail, SRT).
+A native macOS app for people starting a YouTube channel. It does not compete with CapCut on a timeline. It competes on a **YouTube-ready package**: you approve the script, we render locally with YouTube-safe audio, and you leave with an upload pack — not just an MP4.
 
-This is an automated director, not a timeline NLE. There is no manual cutting. Faceless channels first. Shorts (9:16) and long-form (16:9).
+There is **no silent path** from topic to finished video. Draft → **Accept script** → compose/export. YouTube 2026 inauthentic-content review is at the channel level; firehose automation is a liability.
+
+Faceless channels first. Shorts (9:16) and long-form (16:9).
 
 Marketing site: [`site/index.html`](site/index.html)
 
@@ -19,30 +21,27 @@ Nothing optional is required to export a playable video. AVSpeech, styled cards,
 | Job | Tool | License / notes | Required? |
 | --- | --- | --- | --- |
 | Script / SEO | Ollama at `localhost:11434` | Local LLM. Template writer if down. | Optional |
-| TTS | **Kokoro-82M** via `http://127.0.0.1:8880` (kokoro-fastapi) | Apache 2.0. Voice picker. | Optional |
-| TTS | **Piper** binary on `PATH` | CPU, offline | Optional |
-| TTS | macOS `AVSpeechSynthesizer` | Always works so Generate never blocks | Built-in |
+| TTS | **Kokoro-FastAPI** `http://127.0.0.1:8880/v1/audio/speech` | Apache 2.0, OpenAI-compatible. Named voices, per-project lock. | Optional |
+| TTS | macOS `AVSpeechSynthesizer` | Always the fallback. Piper is **not** embedded (piper1-gpl is GPL-3.0). | Built-in |
 | Voiceover | User-dropped WAV/M4A/MP3 | Wins over every TTS engine | Optional |
 | Captions | Duration-align from script | Word-timed cards, karaoke / pop / lower-third | Built-in |
 | Captions | Whisper HTTP at `:9000` / WhisperKit if present | Used only when a real VO file exists | Optional |
 | Stock video | [Pexels Videos API](https://www.pexels.com/api/) | Free key. Settings / Keychain `REELFORGE_PEXELS_API_KEY` | Optional |
-| Stock photo | [Unsplash API](https://unsplash.com/developers) | Free key. Settings / Keychain `REELFORGE_UNSPLASH_ACCESS_KEY` | Optional |
-| Local image / video | ComfyUI `:8188`, A1111 `:7860` | User already runs these. LTX if a workflow is available | Optional |
-| Music | Bundled original-safe beds | Pulse / cinematic / clean / warm, ducked under VO | Built-in |
-| Music | ACE-Step HTTP (`7865` / `8001` / `8019`) | Optional hook. No copyrighted downloads | Optional |
-| Compose / export | AVFoundation | H.264 MP4 to `~/Movies/ReelForge/<video-folder>/` | Built-in |
-| Export fallback | `ffmpeg` on PATH | Only if `AVAssetExportSession` fails | Optional |
+| Stock photo | Unsplash | **Off by default.** Manual Settings path only. Unsplash API terms: non-automated, must hotlink, cannot charge for API content. | Manual |
+| Local image / video | ComfyUI `:8188`, A1111 `:7860` | Optional sidecars. Stock-first. Not vendored. LTX is preview quality. | Optional |
+| Music | Bundled original-safe beds + user folder | Duck **8–12 dB** under VO. Never CapCut/TikTok/copyrighted downloads. License ledger on the project. | Built-in |
+| Compose / export | AVFoundation / VideoToolbox | H.264 MP4 to `~/Movies/ReelForge/<video-folder>/`. ffmpeg not vendored. | Built-in |
 | YouTube upload | Data API key in Settings | Field stored. Upload button is disabled / coming soon. No fake upload | Optional |
 
 Footage order per beat, never stall:
 
 1. User local video / images
-2. Pexels Videos API (moving B-roll)
-3. ComfyUI localhost:8188 (still or LTX video)
-4. Unsplash stills + Ken Burns
+2. **Pexels Videos API** (`Authorization` header, `/videos/search`, page 2+ to skip first-page generic office/nature/city-aerial). Per-channel `video.id` blacklist.
+3. Optional ComfyUI still/video if you turned local AI on
+4. Unsplash stills only if you explicitly enable the manual toggle
 5. Generated gradient / type cards
 
-Picture quality: first 1.5s is a hook line, captions stay in the YouTube Shorts safe area (~12% bottom / ~18% right), Viral Hook cards are 5–7 words, cuts land on phrase boundaries, and music is ducked under VO (~−14 dB). Thumbnails are 4–6 huge words so they still read at 160px.
+Picture rules: first beat **must** be a hook (builder fails otherwise). First 1.5s = on-screen claim + VO start + picture change. No logo open. Captions stay in the Shorts safe zone (~15% top and bottom, right rail clear). Viral Hook is 3–6 words/line. Music ducks 8–12 dB. Thumbnails are 3–6 huge words. Title promise appears in title + thumb + first 3s VO.
 
 Attribution (Pexels / Unsplash) is stored on `project.json`. It is not burned into the frame.
 
@@ -61,7 +60,8 @@ In Xcode, select the **ReelForge** scheme and run. Minimum window size is 1200×
 Keyboard:
 
 - `⌘N` new project
-- `⌘R` generate / cancel
+- `⌘R` draft script / cancel
+- `⌘↩` accept script (required before render)
 - `⌘E` reveal the last export
 
 Each export is a folder under `~/Movies/ReelForge/` containing the MP4, thumbnail `.jpg`, sidecar `.srt`, and publish-pack `.json`.
@@ -73,27 +73,31 @@ Each export is a folder under `~/Movies/ReelForge/` containing the MP4, thumbnai
 3. **Target** — YouTube Short (15–60s) or Long (3–8 min) with duration control.
 4. **Language** — English first; the model is ready for more.
 5. **Series / pillar** — optional name used in titles and tags.
-6. **Generate** — voice, captions, footage, music, compose, package, export.
-7. **Publish pack** — title (≤70), description with chapters + CTA, tags / hashtags, 1280×720 thumbnail, suggested filename.
+6. **Draft script** — Ollama or the template writer. Stops at the script desk.
+7. **Accept script** — required. Edit hook, beats, and captions. No compose until this click.
+8. **Publish pack** — title (≤70, same promise as thumb + first 3s VO), description hook in the first 150 characters, chapters from 0:00, tags, up to 3 thumbnails, SRT, asset credits, reminder to tick YouTube’s altered/synthetic content checkbox.
 
-Batch: paste two or more topics, pick a preset, **Generate all**. Progress list. One export folder per video.
+Batch (P2): paste topics, draft sequentially. **Each item still requires Accept script.** No auto-upload.
 
 ## Channel kit
 
 Settings → Channel:
 
 - Channel name, primary / accent colors
-- Logo drop (safe-area watermark)
-- Intro seconds (0–3) and outro subscribe card
+- Logo drop (watermark **after** the first 1.5s — never a logo-first open)
+- Outro subscribe card (optional)
 - Default voice, default preset, default aspect
+- Imported music folder (bundled original-safe beds if empty)
 
-Applied automatically on Generate.
+Applied after you **Accept script**. No channel intro is prepended.
 
 ## Voice
 
-Priority: dropped VO → Kokoro-82M (`:8880`) → Piper on PATH → AVSpeech.
+Priority: dropped VO → **Kokoro-FastAPI** `http://127.0.0.1:8880/v1/audio/speech` → AVSpeech.
 
-The inspector shows the live engine, a named voice picker, speed, and pause between beats.
+Named voices (Bella, Sarah, Adam, Michael, Emma, Nicole, Fenrir), per-project lock, pause at commas. Piper is **not** embedded (piper1-gpl is GPL-3.0) and is not on the synthesize path.
+
+The inspector shows the live engine, a named voice picker, and speed.
 
 ## What works offline
 
@@ -105,7 +109,7 @@ Always:
 - Word-timed caption cards + sidecar SRT
 - Styled gradient / typography cards
 - Programmatic original-safe music beds
-- Color grade, Ken Burns, grain, transitions, channel intro/outro
+- Color grade, Ken Burns, grain, transitions, optional subscribe outro
 - H.264 MP4 + 1280×720 thumbnail via AVFoundation / Core Image
 
 The director never stalls. If a source is missing it records a warning on the project and keeps going.
@@ -117,10 +121,9 @@ The director never stalls. If a source is missing it records a warning on the pr
 1. Create a free key at [pexels.com/api](https://www.pexels.com/api/).
 2. Paste it in Settings, or set `REELFORGE_PEXELS_API_KEY`.
 
-**Unsplash** (stills + Ken Burns):
+**Unsplash** (manual stills only, **off by default**):
 
-1. Create an access key at [unsplash.com/developers](https://unsplash.com/developers).
-2. Paste it in Settings, or set `REELFORGE_UNSPLASH_ACCESS_KEY`.
+Unsplash API terms forbid automated pipelines, require hotlinking, and do not allow charging for API content. Keep the Settings toggle off. Do not use Unsplash on the automated Generate path.
 
 **YouTube Data API** (upload later):
 
@@ -136,33 +139,33 @@ brew install ollama
 ollama serve
 ollama pull llama3.2
 
-# Voice (pick one)
-# Kokoro-fastapi commonly listens on http://127.0.0.1:8880
-# Piper: brew install piper-tts   # if a bottle exists on your Mac
+# Voice (preferred)
+# Kokoro-FastAPI listens on http://127.0.0.1:8880
+# POST /v1/audio/speech  (OpenAI-compatible, Apache-2.0)
 ```
 
-ComfyUI on `http://127.0.0.1:8188` is probed first for local images / LTX video. Export API-format workflows to:
+ComfyUI on `http://127.0.0.1:8188` is an **optional sidecar** for local images / LTX video. Stock-first. Do not vendor ComfyUI. Export API-format workflows to:
 
 ```
 ~/Library/Application Support/ReelForge/comfy-t2i.json
 ~/Library/Application Support/ReelForge/comfy-i2v.json
 ```
 
-Automatic1111 on `7860` is a secondary image API. ACE-Step is optional music only.
+Automatic1111 on `7860` is a secondary image API. Music is **bundled original-safe beds** plus a user-imported folder. ACE-Step is not on the Director path. Never download CapCut, TikTok, or copyrighted tracks.
 
 ## Architecture
 
 The edit is a **JSON storyboard plus a deterministic AVFoundation renderer**. An LLM never moves frames.
 
-1. **Script** — user script, Ollama, or the template writer
-2. **Storyboard** — beats clamped to the preset cut range, plus channel intro/outro
-3. **Voice** — dropped VO, Kokoro, Piper, or AVSpeech (always produces audio)
-4. **Captions** — word-timed cards; optional local Whisper HTTP; burn-in and/or SRT
-5. **Footage** — local → Pexels video → ComfyUI still/video → Unsplash stills → styled cards
-6. **Music** — ACE-Step if a clean hook answers, else a synthesized loop, ducked under VO
-7. **Compose** — per-beat H.264 clips (Ken Burns, grade, captions, logo) assembled with `AVMutableComposition`
-8. **Package** — title, description, tags, chapters, 1280×720 thumbnail
-9. **Export** — `AVAssetExportSession` into a per-video folder; `ffmpeg` only if that fails
+1. **Draft script** — user script, Ollama, or the template writer. Stops here.
+2. **Accept script** — required human gate. Edit hook, beats, and captions. No silent path to MP4.
+3. **Storyboard** — JSON beats. First beat **must** be a hook (≥1.5s). Builder fails on greeting / logo opens. Optional outro only.
+4. **Voice** — dropped VO, Kokoro-FastAPI (`:8880/v1/audio/speech`), or AVSpeech. Per-project lock. Pauses at commas.
+5. **Captions** — 3–6 words on Viral Hook; Shorts ~15% top/bottom + right rail clear; karaoke/pop; SRT.
+6. **Footage** — local → Pexels Videos (`Authorization`, skip first-page generic, per-channel `video.id` blacklist) → optional ComfyUI → cards. Unsplash off.
+7. **Music** — bundled original-safe bed or imported folder. Duck 8–12 dB under VO. License ledger on the project.
+8. **Compose** — per-beat H.264 clips (Ken Burns, grade, captions, logo after 1.5s) via AVFoundation / VideoToolbox.
+9. **Package + export** — title ≤70, description hook in first 150 chars, chapters from 0:00, tags, 1–3 thumbs, credits, synthetic-content reminder. No auto-upload.
 
 ```
 Sources/ReelForgeCore/     SPM library, Linux-testable
@@ -212,13 +215,15 @@ On a Mac, after `xcodegen generate`, build the **ReelForge** scheme in Xcode.
 
 1. Select **Listicle** (or Viral Hook)
 2. Type `3 reasons your morning walk beats the gym`
-3. Generate
-4. Play the MP4, copy the Publish pack, reveal the folder
+3. **Draft script**
+4. Edit the desk if you want, then **Accept script**
+5. Play the MP4, copy the Publish pack, reveal the folder
 
-You get speech, captions, B-roll or styled cards, a ducked bed, a thumbnail, and sidecar SRT.
+You get speech, captions, B-roll or styled cards, a ducked bed, a thumbnail, sidecar SRT, and asset credits.
 
 ## Notes
 
-- Music beds are synthesized at export time unless a local ACE-Step `/generate` hook answers. No copyrighted audio is downloaded.
+- Music beds are synthesized at export time, or copied from your imported folder. No CapCut / TikTok / copyrighted audio is downloaded.
 - App Sandbox is on, with Movies write, user-selected files, and outgoing network.
 - Do not put API keys in the repo.
+- We do not ship doctor, lawyer, finance-advisor, or political-expert impersonation presets.

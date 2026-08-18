@@ -26,6 +26,10 @@ struct PreviewPane: View {
 
             GenerationProgressView()
 
+            if state.awaitingAccept {
+                ScriptDeskView()
+            }
+
             if let url = state.exportURL {
                 HStack(spacing: 10) {
                     Button("Play") { state.attachPlayer(url) }
@@ -56,9 +60,9 @@ struct PreviewPane: View {
             Image(systemName: "sparkles.tv")
                 .font(.system(size: 36, weight: .light))
                 .foregroundStyle(RFTheme.gold)
-            Text("Type a topic, pick a preset, generate")
+            Text("Type a topic, draft, then Accept")
                 .font(.system(size: 18, weight: .semibold))
-            Text("The director writes a script, times the beats, speaks the line, burns captions, grades the picture, and exports an MP4. You do not cut a single clip.")
+            Text("The director writes a script. You accept it. Then we speak, caption, stock, and export a YouTube pack — not a silent firehose.")
                 .font(.system(size: 12))
                 .foregroundStyle(RFTheme.muted)
                 .multilineTextAlignment(.center)

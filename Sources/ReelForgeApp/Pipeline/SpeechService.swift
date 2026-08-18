@@ -29,26 +29,6 @@ struct SpeechService {
         return preferredVoices().first ?? AVSpeechSynthesisVoice(language: "en-US")
     }
 
-    static func piperAvailable() -> Bool {
-        ["/opt/homebrew/bin/piper", "/usr/local/bin/piper"].contains { FileManager.default.isExecutableFile(atPath: $0) }
-            || which("piper") != nil
-    }
-
-    static func which(_ name: String) -> String? {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/which")
-        task.arguments = [name]
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = Pipe()
-        try? task.run()
-        task.waitUntilExit()
-        let path = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        if let path, FileManager.default.isExecutableFile(atPath: path) { return path }
-        return nil
-    }
-
     static func allVoices() -> [VoiceChoice] {
         var items: [VoiceChoice] = [
             VoiceChoice(id: "kokoro:af_bella", name: "Kokoro · Bella", engine: "Kokoro"),
@@ -56,7 +36,8 @@ struct SpeechService {
             VoiceChoice(id: "kokoro:am_adam", name: "Kokoro · Adam", engine: "Kokoro"),
             VoiceChoice(id: "kokoro:am_michael", name: "Kokoro · Michael", engine: "Kokoro"),
             VoiceChoice(id: "kokoro:bf_emma", name: "Kokoro · Emma", engine: "Kokoro"),
-            VoiceChoice(id: "piper:default", name: "Piper (local)", engine: "Piper")
+            VoiceChoice(id: "kokoro:af_nicole", name: "Kokoro · Nicole", engine: "Kokoro"),
+            VoiceChoice(id: "kokoro:am_fenrir", name: "Kokoro · Fenrir", engine: "Kokoro")
         ]
         items.append(contentsOf: preferredVoices().prefix(10).map {
             VoiceChoice(id: $0.identifier, name: "Mac · \($0.name)", engine: "AVSpeech")
@@ -71,7 +52,6 @@ struct SpeechService {
         to url: URL
     ) async throws -> (duration: TimeInterval, engine: String) {
         let wantsKokoro = voiceIdentifier == nil || voiceIdentifier?.hasPrefix("kokoro:") == true
-        let wantsPiper = voiceIdentifier == nil || voiceIdentifier?.hasPrefix("piper:") == true
         if wantsKokoro {
             let voice = voiceIdentifier?.hasPrefix("kokoro:") == true
                 ? String(voiceIdentifier!.dropFirst(7))
@@ -80,12 +60,7 @@ struct SpeechService {
                 return (duration, "Kokoro")
             }
         }
-        if wantsPiper, let duration = piper(text: text, to: url) {
-            return (duration, "Piper")
-        }
-        let appleID = (voiceIdentifier?.hasPrefix("kokoro:") == true || voiceIdentifier?.hasPrefix("piper:") == true)
-            ? nil
-            : voiceIdentifier
+        let appleID = voiceIdentifier?.hasPrefix("kokoro:") == true ? nil : voiceIdentifier
         let duration = try await synthesizeApple(text: text, voiceIdentifier: appleID, speed: speed, to: url)
         return (duration, "AVSpeech")
     }
@@ -112,30 +87,6 @@ struct SpeechService {
             if FileManager.default.fileExists(atPath: url.path) {
                 return await durationOfAudio(at: url) ?? estimateDuration(text: text)
             }
-        }
-        return nil
-    }
-
-    private func piper(text: String, to url: URL) -> TimeInterval? {
-        guard let binary = Self.which("piper") ?? ["/opt/homebrew/bin/piper", "/usr/local/bin/piper"].first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else {
-            return nil
-        }
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: binary)
-        task.arguments = ["--output_file", url.path]
-        let input = Pipe()
-        task.standardInput = input
-        task.standardError = Pipe()
-        do {
-            try task.run()
-            input.fileHandleForWriting.write(Data(text.utf8))
-            input.fileHandleForWriting.closeFile()
-            task.waitUntilExit()
-            if task.terminationStatus == 0, FileManager.default.fileExists(atPath: url.path) {
-                return estimateDuration(text: text)
-            }
-        } catch {
-            return nil
         }
         return nil
     }

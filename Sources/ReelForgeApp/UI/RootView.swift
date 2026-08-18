@@ -76,9 +76,8 @@ struct TopBar: View {
             chip(state.localStatus.comfyUI ? "ComfyUI" : "Comfy off", on: state.localStatus.comfyUI)
             chip(state.localStatus.ollama ? "Ollama" : "LLM off", on: state.localStatus.ollama)
             chip(state.pexelsConfigured ? "Pexels" : "No Pexels", on: state.pexelsConfigured)
-            chip(state.unsplashConfigured ? "Unsplash" : "No Unsplash", on: state.unsplashConfigured)
-            if state.localStatus.aceStep {
-                chip("ACE-Step", on: true)
+            if state.useUnsplash {
+                chip(state.unsplashConfigured ? "Unsplash" : "Unsplash off", on: state.unsplashConfigured)
             }
         }
     }

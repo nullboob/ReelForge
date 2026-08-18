@@ -22,7 +22,7 @@ final class CaptionSplitTests: XCTestCase {
         let dir = try XCTUnwrap(PresetCatalog.bundledDirectory() ?? PresetCatalog.sourceTreeDirectory())
         let preset = try PresetCatalog.load(from: dir).first { $0.id == "viral-hook" }!
         let script = ScriptWriter.write(topic: "3 reasons your morning walk beats the gym", presetID: preset.id)
-        let board = StoryboardBuilder.build(script: script, preset: preset, duration: 15)
+        let board = try StoryboardBuilder.build(script: script, preset: preset, duration: 15)
         let cues = CaptionSplitter.cues(from: script, duration: 15, maxWordsPerCard: 5, storyboard: board)
         XCTAssertFalse(cues.isEmpty)
         for cue in cues {

@@ -29,6 +29,8 @@ public struct Project: Codable, Identifiable, Equatable, Sendable {
     public var attributions: [UnsplashAttribution]
     public var publishPack: PublishPack?
     public var ttsEngine: String?
+    public var scriptAccepted: Bool
+    public var licenseLedger: [LicenseEntry]
     public var exportPath: String?
     public var warnings: [String]
 
@@ -42,7 +44,7 @@ public struct Project: Codable, Identifiable, Equatable, Sendable {
         scriptOverride: String? = nil,
         aspectOverride: AspectRatio? = nil,
         durationOverride: Int? = nil,
-        useUnsplash: Bool = true,
+        useUnsplash: Bool = false,
         usePexels: Bool = true,
         useLocalAI: Bool = true,
         burnCaptions: Bool = true,
@@ -61,6 +63,8 @@ public struct Project: Codable, Identifiable, Equatable, Sendable {
         attributions: [UnsplashAttribution] = [],
         publishPack: PublishPack? = nil,
         ttsEngine: String? = nil,
+        scriptAccepted: Bool = false,
+        licenseLedger: [LicenseEntry] = [],
         exportPath: String? = nil,
         warnings: [String] = []
     ) {
@@ -92,6 +96,8 @@ public struct Project: Codable, Identifiable, Equatable, Sendable {
         self.attributions = attributions
         self.publishPack = publishPack
         self.ttsEngine = ttsEngine
+        self.scriptAccepted = scriptAccepted
+        self.licenseLedger = licenseLedger
         self.exportPath = exportPath
         self.warnings = warnings
     }

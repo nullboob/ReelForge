@@ -51,7 +51,7 @@ struct SettingsView: View {
             labeledField("Unsplash access key", text: $unsplash)
             labeledField("Pexels API key (REELFORGE_PEXELS_API_KEY)", text: $pexels)
             labeledField("YouTube Data API key (upload later)", text: $youtube)
-            Text("Unsplash and Pexels are optional. Without them, Generate still finishes with styled cards. YouTube upload is coming soon — this key is stored only. No fake upload.")
+            Text("Pexels Videos is the automated B-roll path. Unsplash stays off by default — their API terms forbid automated use and require hotlinking. YouTube upload is coming soon. No fake upload.")
                 .font(.system(size: 11))
                 .foregroundStyle(RFTheme.muted)
             HStack {
@@ -93,13 +93,20 @@ struct SettingsView: View {
                 Button("Drop / choose") { state.pickChannelLogo() }
                     .buttonStyle(GhostButtonStyle())
             }
-            Stepper(
-                "Intro seconds: \(state.channelKit.introSeconds, specifier: "%.1f")",
-                value: $state.channelKit.introSeconds,
-                in: 0...3,
-                step: 0.5
-            )
+            Text("The hook scene always opens the video. Channel intro is not prepended (no logo-first open).")
+                .font(.system(size: 11))
+                .foregroundStyle(RFTheme.muted)
             Toggle("Outro subscribe card", isOn: $state.channelKit.outroEnabled)
+            HStack {
+                Text("Imported music folder")
+                Spacer()
+                if let path = state.channelKit.musicFolderPath, !path.isEmpty {
+                    Text(URL(fileURLWithPath: path).lastPathComponent)
+                        .foregroundStyle(RFTheme.muted)
+                }
+                Button("Choose") { state.pickMusicFolder() }
+                    .buttonStyle(GhostButtonStyle())
+            }
             Picker("Default voice", selection: Binding(
                 get: { state.channelKit.defaultVoice ?? "" },
                 set: { state.channelKit.defaultVoice = $0.isEmpty ? nil : $0 }
@@ -123,7 +130,7 @@ struct SettingsView: View {
                 Text("16:9 Long").tag(Optional(AspectRatio.landscape))
                 Text("1:1").tag(Optional(AspectRatio.square))
             }
-            Text("Applied automatically on Generate: colors, logo watermark, intro/outro, default voice, preset, and aspect.")
+            Text("Applied on Accept: colors, logo after 1.5s, outro, default voice, preset, aspect. Music is bundled beds or your imported folder — never CapCut/TikTok tracks.")
                 .font(.system(size: 11))
                 .foregroundStyle(RFTheme.muted)
         }
@@ -136,15 +143,13 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle("Local services")
             statusRow("Kokoro-82M", state.localStatus.kokoro, "http://127.0.0.1:8880")
-            statusRow("Piper", state.localStatus.piper, state.localStatus.piper ? "binary on PATH" : "not found")
-            statusRow("AVSpeech", true, "always available")
+            statusRow("AVSpeech", true, "fallback, always available")
             statusRow("ComfyUI", state.localStatus.comfyUI, state.localStatus.comfyDetail.isEmpty ? "http://127.0.0.1:8188" : state.localStatus.comfyDetail)
             statusRow("ComfyUI video (LTX / I2V)", state.localStatus.canComfyVideo, "user workflow or LTX nodes")
             statusRow("Ollama", state.localStatus.ollama, state.localStatus.ollamaModel ?? "http://127.0.0.1:11434")
             statusRow("Automatic1111", state.localStatus.automatic1111, "http://127.0.0.1:7860")
-            statusRow("ACE-Step", state.localStatus.aceStep, "http://127.0.0.1:7865")
             statusRow("Local whisper", state.localStatus.whisper, "http://127.0.0.1:9000")
-            Text("Live TTS engine: \(state.localStatus.ttsEngine). Generate never blocks if a probe is down.")
+            Text("Preferred TTS: Kokoro-FastAPI at http://127.0.0.1:8880/v1/audio/speech. AVSpeech if Kokoro is down. Piper is not embedded (GPL-3.0). Music is bundled original-safe beds or your imported folder — ACE-Step is not on the Director path.")
                 .font(.system(size: 11))
                 .foregroundStyle(RFTheme.muted)
             Button("Re-scan") { state.refreshStatus() }
@@ -155,7 +160,7 @@ struct SettingsView: View {
     private var workflowsSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle("ComfyUI workflows")
-            Text("ReelForge probes http://127.0.0.1:8188 first. If CheckpointLoaderSimple is installed it queues a simple T2I graph. For LTX / qwen-image-edit / I2V, export an API-format workflow from ComfyUI and save it as ~/Library/Application Support/ReelForge/comfy-t2i.json or comfy-i2v.json. If the graph is missing, Generate still finishes with Pexels, Unsplash, or styled cards.")
+            Text("ComfyUI / LTX are optional sidecars. Stock (Pexels) is first. ReelForge does not vendor ComfyUI or GPL ffmpeg. Export is AVFoundation / VideoToolbox.")
                 .font(.system(size: 11))
                 .foregroundStyle(RFTheme.muted)
         }

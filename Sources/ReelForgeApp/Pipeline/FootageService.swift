@@ -54,17 +54,22 @@ struct FootageService {
             if usePexels, let key = pexelsKey {
                 let destVideo = workDir.appendingPathComponent("pexels-\(index).mp4")
                 await onProgress("Searching Pexels video for beat \(index + 1)/\(beats.count)")
+                let banned = ClipBlacklist.load(channel: channelName ?? "")
                 if let clip = await PexelsClient.shared.search(
-                    query: beat.unsplashQuery,
+                    query: beat.unsplashQuery.isEmpty ? beat.text : beat.unsplashQuery,
                     accessKey: key,
-                    portrait: aspect != .landscape
+                    portrait: aspect != .landscape,
+                    page: 2 + (index % 3),
+                    excluding: banned
                 ), await PexelsClient.shared.download(clip, to: destVideo) {
+                    ClipBlacklist.remember(clip.id, channel: channelName ?? "")
                     let attr = UnsplashAttribution(
                         source: "pexels",
                         photographer: clip.photographer,
                         photographerURL: clip.photographerURL,
                         photoURL: clip.pageURL,
-                        beatID: beat.id
+                        beatID: beat.id,
+                        clipID: String(clip.id)
                     )
                     attributions.append(attr)
                     assignments[beat.id] = FootageAssignment(

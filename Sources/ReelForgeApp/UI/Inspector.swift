@@ -83,7 +83,7 @@ struct Inspector: View {
                         .font(.system(size: 11))
                         .foregroundStyle(RFTheme.gold)
                     Picker("Voice", selection: voiceBinding) {
-                        Text("Auto (Kokoro → Piper → Mac)").tag(Optional<String>.none)
+                        Text("Auto (Kokoro → Mac)").tag(Optional<String>.none)
                         ForEach(SpeechService.allVoices()) { voice in
                             Text(voice.name).tag(Optional(voice.id))
                         }
@@ -108,7 +108,7 @@ struct Inspector: View {
                         Button("Add Pexels key in Settings") { state.showSettings = true }
                             .buttonStyle(GhostButtonStyle())
                     }
-                    Toggle("Unsplash stills", isOn: $state.useUnsplash)
+                    Toggle("Unsplash stills (manual only, off by default)", isOn: $state.useUnsplash)
                     Toggle("Use ComfyUI / local AI if available", isOn: $state.useLocalAI)
                     DropZone()
                     if let voice = state.voiceoverURL {
@@ -124,7 +124,7 @@ struct Inspector: View {
                 }
 
                 section("Batch") {
-                    Text("One topic per line. Generate all.")
+                    Text("One topic per line. Each item still stops for Accept script.")
                         .font(.system(size: 11))
                         .foregroundStyle(RFTheme.muted)
                     TextEditor(text: $state.batchText)
@@ -154,11 +154,15 @@ struct Inspector: View {
                 }
 
                 VStack(spacing: 10) {
-                    Button(state.isGenerating ? "Cancel" : "Generate") {
+                    Button(state.isGenerating ? "Cancel" : (state.awaitingAccept ? "Draft ready" : "Draft script")) {
                         if state.isGenerating { state.cancel() } else { state.generate() }
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(!state.canGenerate && !state.isGenerating)
+                    if state.awaitingAccept {
+                        Button("Accept script") { state.acceptScript() }
+                            .buttonStyle(GhostButtonStyle())
+                    }
                     Button("Export / Reveal") { state.revealExport() }
                         .buttonStyle(GhostButtonStyle())
                         .disabled(state.exportURL == nil)
