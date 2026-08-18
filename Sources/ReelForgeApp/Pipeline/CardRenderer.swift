@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 
 enum CardRenderer {
-    static func render(beat: Beat, preset: Preset, size: CGSize) -> NSImage? {
+    static func render(beat: Beat, preset: Preset, size: CGSize, channelName: String? = nil) -> NSImage? {
         let image = NSImage(size: size)
         image.lockFocus()
         guard let ctx = NSGraphicsContext.current?.cgContext else {
@@ -74,14 +74,17 @@ enum CardRenderer {
             ctx: ctx
         )
 
-        let markFont = AppFont.make(name: "AvenirNext-DemiBold", size: 14, weight: "demibold")
-        drawText(
-            "REELFORGE",
-            font: markFont,
-            color: NSColor.white.withAlphaComponent(0.45),
-            in: CGRect(x: margin, y: size.height * 0.08, width: size.width - margin * 2, height: 20),
-            ctx: ctx
-        )
+        if let name = channelName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+            let markFont = AppFont.make(name: "AvenirNext-DemiBold", size: min(18, size.width * 0.028), weight: "demibold")
+            let safe = CaptionSafeArea.rect(width: Double(size.width), height: Double(size.height))
+            drawText(
+                name.uppercased(),
+                font: markFont,
+                color: NSColor.white.withAlphaComponent(0.40),
+                in: CGRect(x: safe.x, y: safe.y, width: safe.width, height: 22),
+                ctx: ctx
+            )
+        }
 
         ctx.restoreGState()
         image.unlockFocus()
@@ -116,16 +119,22 @@ enum CardRenderer {
             }
         }
         let textSize = attr.size()
-        let box = CGRect(
-            x: (canvas.width - min(canvas.width * 0.92, textSize.width + 48)) / 2,
-            y: style.position == .center ? (canvas.height - textSize.height) / 2 : canvas.height * 0.16,
-            width: min(canvas.width * 0.92, textSize.width + 48),
-            height: textSize.height + 20
-        )
+        let safe = CaptionSafeArea.rect(width: Double(canvas.width), height: Double(canvas.height))
+        let maxBox = min(safe.width, Double(textSize.width) + 48)
+        let boxWidth = CGFloat(maxBox)
+        let boxHeight = textSize.height + 20
+        let boxX = CGFloat(safe.x) + (CGFloat(safe.width) - boxWidth) / 2
+        let boxY: CGFloat
+        if style.position == .center {
+            boxY = CGFloat(safe.y) + (CGFloat(safe.height) - boxHeight) / 2
+        } else {
+            boxY = CGFloat(safe.y) + 8
+        }
+        let box = CGRect(x: boxX, y: boxY, width: boxWidth, height: boxHeight)
         let textRect = CGRect(
-            x: box.minX + 24,
+            x: box.minX + 16,
             y: box.minY + 8,
-            width: box.width - 48,
+            width: box.width - 32,
             height: textSize.height + 4
         )
         attr.draw(with: textRect, options: [.usesLineFragmentOrigin, .usesFontLeading])

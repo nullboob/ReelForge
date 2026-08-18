@@ -13,7 +13,7 @@ struct CaptionService {
                 let aligned = CaptionSplitter.align(
                     text: whispered,
                     duration: storyboard.duration,
-                    maxWordsPerCard: preset.captionStyle.maxWordsPerCard
+                    maxWordsPerCard: CaptionSafeArea.maxWords(forPresetID: preset.id, requested: preset.captionStyle.maxWordsPerCard)
                 )
                 if !aligned.isEmpty {
                     return (aligned, nil)
@@ -23,7 +23,7 @@ struct CaptionService {
         let cues = CaptionSplitter.cues(
             from: script,
             duration: storyboard.duration,
-            maxWordsPerCard: preset.captionStyle.maxWordsPerCard,
+            maxWordsPerCard: CaptionSafeArea.maxWords(forPresetID: preset.id, requested: preset.captionStyle.maxWordsPerCard),
             storyboard: storyboard
         )
         return (cues, nil)

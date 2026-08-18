@@ -37,10 +37,12 @@ Nothing optional is required to export a playable video. AVSpeech, styled cards,
 Footage order per beat, never stall:
 
 1. User local video / images
-2. Pexels Videos API
-3. Unsplash stills + Ken Burns
-4. ComfyUI localhost:8188
+2. Pexels Videos API (moving B-roll)
+3. ComfyUI localhost:8188 (still or LTX video)
+4. Unsplash stills + Ken Burns
 5. Generated gradient / type cards
+
+Picture quality: first 1.5s is a hook line, captions stay in the YouTube Shorts safe area (~12% bottom / ~18% right), Viral Hook cards are 5–7 words, cuts land on phrase boundaries, and music is ducked under VO (~−14 dB). Thumbnails are 4–6 huge words so they still read at 160px.
 
 Attribution (Pexels / Unsplash) is stored on `project.json`. It is not burned into the frame.
 
@@ -156,7 +158,7 @@ The edit is a **JSON storyboard plus a deterministic AVFoundation renderer**. An
 2. **Storyboard** — beats clamped to the preset cut range, plus channel intro/outro
 3. **Voice** — dropped VO, Kokoro, Piper, or AVSpeech (always produces audio)
 4. **Captions** — word-timed cards; optional local Whisper HTTP; burn-in and/or SRT
-5. **Footage** — local → Pexels → Unsplash → ComfyUI / A1111 → styled cards
+5. **Footage** — local → Pexels video → ComfyUI still/video → Unsplash stills → styled cards
 6. **Music** — ACE-Step if a clean hook answers, else a synthesized loop, ducked under VO
 7. **Compose** — per-beat H.264 clips (Ken Burns, grade, captions, logo) assembled with `AVMutableComposition`
 8. **Package** — title, description, tags, chapters, 1280×720 thumbnail

@@ -68,6 +68,9 @@ public enum ScriptWriter {
         if cta.isEmpty {
             cta = defaultCTA(for: fallbackTopic, presetID: presetID)
         }
+        if isLectureHook(hook) {
+            hook = write(topic: fallbackTopic, presetID: presetID, source: .template).hook
+        }
         return GeneratedScript(hook: hook, body: body, cta: cta, source: .ollama)
     }
 
@@ -125,7 +128,7 @@ public enum ScriptWriter {
         Topic: \(topic)
 
         Return plain text with these labeled lines and nothing else:
-        HOOK: one punchy opening sentence
+        HOOK: one pattern-interrupt sentence. Never start with "In this video", "Today we", "Welcome back", or "Let's talk about".
         \(Array(repeating: "BODY: one spoken sentence", count: bodies).joined(separator: "\n"))
         CTA: one short closing ask
 
@@ -148,7 +151,7 @@ public enum ScriptWriter {
     private static func factsScript(topic: String, subject: String, count: Int, source: ScriptSource) -> GeneratedScript {
         let facts = expandPoints(subject: subject, topic: topic, count: count, flavor: .facts)
         return GeneratedScript(
-            hook: "Here are \(facts.count) things about \(lowercase(subject)) most people still get backward.",
+            hook: "Most people still get \(lowercase(subject)) backward. Here is the cut.",
             body: facts,
             cta: "Save this so you remember it later. More facts incoming.",
             source: source
@@ -158,7 +161,7 @@ public enum ScriptWriter {
     private static func productScript(topic: String, subject: String, count: Int, source: ScriptSource) -> GeneratedScript {
         let features = expandPoints(subject: subject, topic: topic, count: count, flavor: .product)
         return GeneratedScript(
-            hook: "Meet the simpler way to handle \(lowercase(subject)).",
+            hook: "You have been doing \(lowercase(subject)) the hard way.",
             body: features,
             cta: "If this solves the annoying part, it is already worth a look.",
             source: source
@@ -168,7 +171,7 @@ public enum ScriptWriter {
     private static func tutorialScript(topic: String, subject: String, count: Int, source: ScriptSource) -> GeneratedScript {
         let steps = expandPoints(subject: subject, topic: topic, count: count, flavor: .tutorial)
         return GeneratedScript(
-            hook: "Do this in \(steps.count) calm steps and \(lowercase(subject)) stops feeling messy.",
+            hook: "Skip the 40-minute version. \(capitalize(subject)) is \(steps.count) moves.",
             body: steps,
             cta: "Replay it once, then do the first step before you overthink it.",
             source: source
@@ -178,7 +181,7 @@ public enum ScriptWriter {
     private static func newsScript(topic: String, subject: String, count: Int, source: ScriptSource) -> GeneratedScript {
         let beats = expandPoints(subject: subject, topic: topic, count: count, flavor: .news)
         return GeneratedScript(
-            hook: "Quick brief: \(capitalize(subject)).",
+            hook: "The headline skipped this: \(lowercase(subject)).",
             body: beats,
             cta: "That is the cut. Follow for the next briefing.",
             source: source
@@ -224,7 +227,7 @@ public enum ScriptWriter {
     private static func listicleScript(topic: String, subject: String, count: Int, source: ScriptSource) -> GeneratedScript {
         let items = expandPoints(subject: subject, topic: topic, count: count, flavor: .listicle)
         return GeneratedScript(
-            hook: "Here is the honest list on \(lowercase(subject)) — no filler ranks.",
+            hook: "Stop ranking this by vibes. The honest list on \(lowercase(subject)) starts now.",
             body: items,
             cta: "Which one are you trying first? Comment the number and subscribe for the next list.",
             source: source
@@ -234,7 +237,7 @@ public enum ScriptWriter {
     private static func explainerScript(topic: String, subject: String, count: Int, source: ScriptSource) -> GeneratedScript {
         let beats = expandPoints(subject: subject, topic: topic, count: count, flavor: .explainer)
         return GeneratedScript(
-            hook: "If \(lowercase(subject)) still feels fuzzy, watch this once and it will lock in.",
+            hook: "Forget the 20-minute explainer. \(capitalize(subject)) is one mechanism.",
             body: beats,
             cta: "Replay the middle if you need it. Subscribe if you want the next explainer.",
             source: source
@@ -273,7 +276,7 @@ public enum ScriptWriter {
     private static func podcastScript(topic: String, subject: String, count: Int, source: ScriptSource) -> GeneratedScript {
         let beats = expandPoints(subject: subject, topic: topic, count: count, flavor: .podcast)
         return GeneratedScript(
-            hook: "Clip this: the useful minute on \(lowercase(subject)).",
+            hook: "This is the minute they hoped you would skip: \(lowercase(subject)).",
             body: beats,
             cta: "Full conversation is on the channel. Subscribe so you do not miss the next cut.",
             source: source
@@ -393,6 +396,12 @@ public enum ScriptWriter {
                 "this is the line you can steal for your own week"
             ]
         }
+    }
+
+    private static func isLectureHook(_ text: String) -> Bool {
+        let lower = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let banned = ["in this video", "today we", "welcome back", "let's talk about", "let us talk", "hey guys"]
+        return banned.contains { lower.hasPrefix($0) }
     }
 
     private static func defaultCTA(for topic: String, presetID: String) -> String {

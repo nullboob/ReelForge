@@ -17,24 +17,30 @@ enum ThumbnailRenderer {
         if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors as CFArray, locations: [0, 1]) {
             ctx.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: size.width, y: size.height), options: [])
         }
-        CardRenderer.drawVignette(ctx: ctx, size: size, amount: 0.45)
-        let eyebrow = channel.name.isEmpty ? "REELFORGE" : channel.name.uppercased()
-        let small = AppFont.make(name: "AvenirNext-DemiBold", size: 22, weight: "demibold")
-        (eyebrow as NSString).draw(
-            at: CGPoint(x: 64, y: 600),
-            withAttributes: [.font: small, .foregroundColor: HexColor.nsColor(channel.accentHex)]
-        )
-        let font = AppFont.make(name: "AvenirNext-Heavy", size: 54, weight: "heavy")
+        CardRenderer.drawVignette(ctx: ctx, size: size, amount: 0.5)
+
+        let headline = PublishPackWriter.thumbnailHeadline(from: hook)
+        let eyebrow = channel.name.isEmpty ? "" : channel.name.uppercased()
+        if !eyebrow.isEmpty {
+            let small = AppFont.make(name: "AvenirNext-DemiBold", size: 28, weight: "demibold")
+            (eyebrow as NSString).draw(
+                at: CGPoint(x: 56, y: 610),
+                withAttributes: [.font: small, .foregroundColor: HexColor.nsColor(channel.accentHex)]
+            )
+        }
+
+        let font = AppFont.make(name: "AvenirNext-Heavy", size: 92, weight: "heavy")
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byWordWrapping
-        (hook as NSString).draw(
-            with: CGRect(x: 64, y: 160, width: 1150, height: 400),
+        paragraph.alignment = .left
+        (headline as NSString).draw(
+            with: CGRect(x: 56, y: 140, width: 1160, height: 430),
             options: [.usesLineFragmentOrigin],
             attributes: [
                 .font: font,
                 .foregroundColor: NSColor.white,
-                .strokeColor: NSColor.black.withAlphaComponent(0.7),
-                .strokeWidth: -2.2,
+                .strokeColor: NSColor.black.withAlphaComponent(0.78),
+                .strokeWidth: -2.6,
                 .paragraphStyle: paragraph
             ]
         )

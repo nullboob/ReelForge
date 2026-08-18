@@ -275,7 +275,7 @@ enum ClipWriter {
             )
         }
 
-        if let title, titleStyle.enabled, time < 1.4 {
+        if let title, time < 1.55 {
             let font = AppFont.make(name: titleStyle.font, size: CGFloat(titleStyle.size) * 0.72, weight: "bold")
             let attr: [NSAttributedString.Key: Any] = [
                 .font: font,

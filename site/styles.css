@@ -127,26 +127,42 @@ h1 {
 .col { padding: 12px; border-right: 1px solid var(--line); }
 .col:last-child { border-right: 0; }
 .chip {
-  height: 42px;
+  min-height: 36px;
   border-radius: 10px;
   margin-bottom: 8px;
+  padding: 8px 8px;
   background: linear-gradient(135deg, #2a2118, #121214);
+  font-family: "Avenir Next", sans-serif;
+  font-size: 10px;
+  color: #c9b8a4;
 }
-.chip.sel { outline: 1px solid var(--accent); }
+.chip.sel { outline: 1px solid var(--accent); color: #fff; }
 .screen {
-  margin: 16px 10px;
+  margin: 16px 10px 8px;
   border-radius: 16px;
   background:
     linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55)),
     linear-gradient(135deg, #5a3a28, #12080c 60%);
-  min-height: 220px;
+  min-height: 200px;
   display: flex;
   align-items: flex-end;
   padding: 16px;
   font-family: "Avenir Next", sans-serif;
   font-weight: 800;
   font-size: 18px;
+  line-height: 1.15;
 }
+.pack {
+  margin: 0 10px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #141418;
+  border: 1px solid var(--line);
+  font-family: "Avenir Next", sans-serif;
+  font-size: 11px;
+  color: var(--muted);
+}
+.pack strong { display: block; color: var(--gold); margin-bottom: 2px; }
 .field, .bar {
   height: 10px;
   border-radius: 99px;
@@ -160,6 +176,13 @@ h1 {
   height: 28px;
   border-radius: 8px;
   background: linear-gradient(90deg, var(--accent), #ff7a59);
+  color: #fff;
+  font-family: "Avenir Next", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .problem, .how, .features, .presets, .trust, .pricing, .faq, .waitlist {

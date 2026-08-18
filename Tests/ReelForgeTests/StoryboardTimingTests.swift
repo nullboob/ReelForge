@@ -36,6 +36,30 @@ final class StoryboardTimingTests: XCTestCase {
         }
     }
 
+    func testFirstHookBeatHoldsAtLeast1_5Seconds() throws {
+        let preset = try viral()
+        let script = ScriptWriter.write(topic: "3 reasons your morning walk beats the gym", presetID: preset.id)
+        let board = StoryboardBuilder.build(script: script, preset: preset, duration: 15)
+        let hook = try XCTUnwrap(board.beats.first)
+        XCTAssertEqual(hook.role, .hook)
+        XCTAssertGreaterThanOrEqual(hook.duration, 1.5 - 0.02)
+        XCTAssertEqual(board.duration, 15, accuracy: 0.08)
+    }
+
+    func testSplitsStayOnPhraseBoundaries() throws {
+        let preset = try viral()
+        let script = GeneratedScript(
+            hook: "Stop scrolling now.",
+            body: ["Then a full stop ends the thought. After that we continue with the second phrase."],
+            cta: "Follow along.",
+            source: .template
+        )
+        let board = StoryboardBuilder.build(script: script, preset: preset, duration: 15)
+        let texts = board.beats.map(\.text)
+        XCTAssertFalse(texts.contains { $0.hasPrefix("stop ends") || $0.hasPrefix("that we") })
+        XCTAssertTrue(texts.contains { $0.contains("full stop") || $0.contains("After that") })
+    }
+
     func testTutorialBeatsCarryStepNumbers() throws {
         let preset = try load("tutorial-steps")
         let script = ScriptWriter.write(topic: "4 steps to cut a reel", presetID: preset.id)

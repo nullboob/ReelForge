@@ -76,6 +76,24 @@ public enum PublishPackWriter {
         """
     }
 
+    /// Huge type on a 1280×720 thumb must still read at ~160px wide. Four to six words.
+    public static func thumbnailHeadline(from hook: String, maxWords: Int = 6) -> String {
+        let words = hook
+            .split { $0.isWhitespace || $0.isNewline }
+            .map(String.init)
+            .filter { !$0.isEmpty }
+        guard !words.isEmpty else { return "Watch this" }
+        var out: [String] = []
+        for word in words.prefix(min(6, max(4, maxWords))) {
+            out.append(word)
+            if let last = word.last, ".!?".contains(last), out.count >= 3 {
+                break
+            }
+            if out.count >= 6 { break }
+        }
+        return out.joined(separator: " ")
+    }
+
     public static func chapters(from storyboard: Storyboard) -> [ChapterMark] {
         storyboard.beats.map { beat in
             let raw = beat.text.split(separator: " ").prefix(8).joined(separator: " ")

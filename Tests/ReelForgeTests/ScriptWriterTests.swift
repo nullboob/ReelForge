@@ -56,6 +56,18 @@ final class ScriptWriterTests: XCTestCase {
         XCTAssertFalse(script.cta.isEmpty)
     }
 
+    func testLectureHookIsReplaced() {
+        let raw = """
+        HOOK: In this video we will discuss walking.
+        BODY: Point one lands first.
+        BODY: Point two keeps you here.
+        CTA: Follow for the close.
+        """
+        let parsed = ScriptWriter.parseModelOutput(raw, fallbackTopic: "morning walk", presetID: "viral-hook")
+        XCTAssertFalse(parsed.hook.lowercased().hasPrefix("in this video"))
+        XCTAssertFalse(parsed.hook.isEmpty)
+    }
+
     func testOllamaLabeledOutput() {
         let raw = """
         HOOK: This is the open.

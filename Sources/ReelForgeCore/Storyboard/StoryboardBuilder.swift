@@ -27,6 +27,7 @@ public enum StoryboardBuilder {
             let drift = target - durations.reduce(0, +)
             durations[last] = max(0.4, durations[last] + drift)
         }
+        pinHookHold(&durations, units: raw, target: target)
 
         var cursor = 0.0
         var beats: [Beat] = []
@@ -155,15 +156,55 @@ public enum StoryboardBuilder {
         return next
     }
 
+    /// First 1.5s is a hook card / hook line. Steal time from later beats so the total still matches.
+    private static func pinHookHold(_ durations: inout [Double], units: [Unit], target: Double) {
+        guard let index = units.firstIndex(where: { if case .hook = $0.role { return true }; return false }) else { return }
+        let need = 1.5
+        if durations[index] + 0.001 >= need { return }
+        var steal = need - durations[index]
+        durations[index] = need
+        for j in durations.indices.reversed() where j != index {
+            let available = durations[j] - 0.45
+            guard available > 0.01 else { continue }
+            let take = min(available, steal)
+            durations[j] -= take
+            steal -= take
+            if steal <= 0.001 { break }
+        }
+        if let last = durations.indices.last {
+            let drift = target - durations.reduce(0, +)
+            durations[last] = max(0.4, durations[last] + drift)
+        }
+    }
+
+    /// Split only on phrase boundaries — never mid-word, never through a clause of three words or fewer.
     private static func splitText(_ text: String) -> [String] {
-        let byComma = text.split(separator: ",", omittingEmptySubsequences: true).map {
+        let sentences = text.split { ".!?".contains($0) }.map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
         }.filter { !$0.isEmpty }
-        if byComma.count >= 2 { return byComma }
-        let words = text.split(whereSeparator: { $0.isWhitespace }).map(String.init)
-        if words.count >= 8 {
-            let mid = words.count / 2
-            return [words[..<mid].joined(separator: " "), words[mid...].joined(separator: " ")]
+        if sentences.count >= 2 { return sentences }
+
+        let emdash = text.components(separatedBy: " — ").map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty }
+        if emdash.count >= 2 { return emdash }
+
+        let commas = text.split(separator: ",", omittingEmptySubsequences: true).map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty }
+        if commas.count >= 2, commas.allSatisfy({ $0.split(whereSeparator: { $0.isWhitespace }).count >= 3 }) {
+            return commas
+        }
+
+        for token in [" but ", " and then ", " so ", " because "] {
+            if let range = text.range(of: token, options: .caseInsensitive) {
+                let left = String(text[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let right = String(text[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if left.split(whereSeparator: { $0.isWhitespace }).count >= 3,
+                   right.split(whereSeparator: { $0.isWhitespace }).count >= 3 {
+                    return [left, right]
+                }
+            }
         }
         return [text]
     }

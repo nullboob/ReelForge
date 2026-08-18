@@ -38,7 +38,7 @@
   "music": {
     "mood": "pulse",
     "bpm": 128,
-    "duckDb": -11
+    "duckDb": -14
   },
   "footage": {
     "unsplashQueries": ["urban night neon", "city motion blur", "close up eyes", "crowd street energy"],

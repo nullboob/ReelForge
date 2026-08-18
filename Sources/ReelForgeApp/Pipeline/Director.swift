@@ -163,7 +163,8 @@ final class Director: @unchecked Sendable {
             pexelsKey: request.pexelsKey,
             useUnsplash: request.useUnsplash,
             usePexels: request.usePexels,
-            useLocalAI: request.useLocalAI
+            useLocalAI: request.useLocalAI,
+            channelName: request.channel.name
         ) { detail in
             Task { await emit(.footage, detail, extra: 0.05) }
         }
@@ -204,7 +205,7 @@ final class Director: @unchecked Sendable {
             voicePath: voiceURL.path,
             voiceDuration: voiceDuration,
             musicPath: musicURL.path,
-            musicVolume: 0.34 * request.preset.music.duckLinear
+            musicVolume: 0.20 * request.preset.music.duckLinear
         )
         if request.channel.introSeconds > 0.05, var voice = plan.voice {
             voice.start = request.channel.introSeconds
@@ -256,8 +257,12 @@ final class Director: @unchecked Sendable {
                     duration: clip.duration,
                     unsplashQuery: ""
                 )
-                let fallbackCard = CardRenderer.render(beat: fallbackBeat, preset: request.preset, size: canvas)
-                    ?? NSImageFallback.black(size: canvas)
+                let fallbackCard = CardRenderer.render(
+                    beat: fallbackBeat,
+                    preset: request.preset,
+                    size: canvas,
+                    channelName: request.channel.name
+                ) ?? NSImageFallback.black(size: canvas)
                 let cgImage = assignment?.fileURL.flatMap { ImageIO.loadCGImage(from: $0) }
                     ?? ImageIO.cgImage(from: fallbackCard)
                 guard let cgImage else { throw ExportError.compositionFailed }
@@ -309,7 +314,7 @@ final class Director: @unchecked Sendable {
         }
         let thumbURL = assetsDir.appendingPathComponent("thumbnail.jpg")
         ThumbnailRenderer.render(
-            hook: script.hook,
+            hook: PublishPackWriter.thumbnailHeadline(from: script.hook),
             channel: request.channel,
             preset: request.preset,
             to: thumbURL

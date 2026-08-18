@@ -32,6 +32,22 @@ final class PublishPackTests: XCTestCase {
         XCTAssertTrue(srt.hasPrefix("1\n"))
     }
 
+    func testThumbnailHeadlineStaysFourToSixWords() {
+        let long = "Stop scrolling. Your morning walk is about to make the usual advice look expensive and tired."
+        let line = PublishPackWriter.thumbnailHeadline(from: long)
+        let count = line.split { $0.isWhitespace }.count
+        XCTAssertGreaterThanOrEqual(count, 3)
+        XCTAssertLessThanOrEqual(count, 6)
+        XCTAssertFalse(line.lowercased().hasPrefix("in this video"))
+    }
+
+    func testCaptionSafeAreaClearsShortsChrome() {
+        let safe = CaptionSafeArea.rect(width: 1080, height: 1920)
+        XCTAssertGreaterThanOrEqual(safe.y / 1920, 0.11)
+        XCTAssertLessThanOrEqual((safe.x + safe.width) / 1080, 0.83)
+        XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 12), 7)
+    }
+
     func testFourteenPresetsLoad() throws {
         let dir = try XCTUnwrap(PresetCatalog.bundledDirectory() ?? PresetCatalog.sourceTreeDirectory())
         let presets = try PresetCatalog.load(from: dir)

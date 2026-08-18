@@ -180,7 +180,7 @@ public enum TimelinePlanner {
                     enabled: preset.footage.kenBurns,
                     pulse: preset.footage.zoomPulse
                 ),
-                titleOverlay: (preset.titleCard.enabled && beat.role == .hook) ? beat.text : nil,
+                titleOverlay: (index == 0 || beat.role == .hook) ? beat.text : nil,
                 stepNumber: beat.stepNumber,
                 sourceKind: asset?.kind ?? .generatedCard,
                 sourcePath: asset?.relativePath ?? ""

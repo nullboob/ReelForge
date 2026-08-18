@@ -58,7 +58,15 @@ final class AppState: ObservableObject {
     }
 
     var resolvedDuration: Int {
-        durationOverride ?? (target == .longForm && (activePreset?.durationSec ?? 30) < 180 ? target.defaultDuration : activePreset?.durationSec) ?? 15
+        if let durationOverride { return durationOverride }
+        let presetDuration = activePreset?.durationSec ?? 30
+        switch target {
+        case .short:
+            if presetDuration >= 180 { return 45 }
+            return min(60, max(15, presetDuration))
+        case .longForm:
+            return presetDuration >= 180 ? presetDuration : target.defaultDuration
+        }
     }
 
     var publishPack: PublishPack? { project.publishPack }

@@ -20,7 +20,7 @@ public enum CaptionSplitter {
     ) -> [CaptionCue] {
         let words = tokenize(text)
         guard !words.isEmpty, duration > 0 else { return [] }
-        let cards = pack(words: words, maxWords: max(1, maxWordsPerCard))
+        let cards = pack(words: words, maxWords: max(1, min(maxWordsPerCard, 12)))
         return timeCards(cards, duration: duration)
     }
 
@@ -56,8 +56,8 @@ public enum CaptionSplitter {
         var current: [String] = []
         for word in words {
             current.append(word)
-            let punct = word.last.map { ".!?".contains($0) } ?? false
-            if current.count >= maxWords || punct {
+            let punct = word.last.map { ".!?,;:".contains($0) } ?? false
+            if current.count >= maxWords || (punct && current.count >= 2) {
                 cards.append(current)
                 current = []
             }
