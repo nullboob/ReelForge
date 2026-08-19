@@ -67,6 +67,8 @@ def gather(
     on_progress=None,
     pixabay_key: str | None = None,
     use_pixabay: bool = True,
+    use_local_models: bool = True,
+    models_dir: str | None = None,
 ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]], list[str], bool]:
     assignments: dict[str, dict[str, Any]] = {}
     ledger: list[dict[str, Any]] = []
@@ -79,7 +81,7 @@ def gather(
     if not has_stock_key and not locals_:
         warnings.append(
             "CARDS ONLY: no Pexels/Pixabay key and no local files. "
-            "This will look like a slide deck, not a finished Short."
+            "Point Model Manager at Ready weights, or this will look like a slide deck."
         )
 
     card_count = 0
@@ -125,6 +127,25 @@ def gather(
                         f"{clip['user']} / Pixabay", beat["id"], str(clip["id"])
                     ))
                     continue
+
+        if use_local_models:
+            from reelforge import infer
+            prompt = f"{beat.get('text') or query}. {preset.get('aiImageStyleSuffix') or ''}"
+            if index == 0 or preset.get("aiVideoEnabled"):
+                dest_video = work / f"ltx-{index}.mp4"
+                if on_progress:
+                    on_progress(f"Trying in-app LTX for beat {index + 1}/{len(beats)}")
+                if infer.generate_video(prompt, dest_video, aspect=aspect, seconds=min(4.0, float(beat.get("duration") or 3)), models_dir=models_dir):
+                    assignments[beat["id"]] = {"kind": "video", "path": str(dest_video), "source": "ltx"}
+                    ledger.append(_entry(f"ltx-{index}", "visual", "ltx", "Generated in-app", "LTX distilled", beat["id"]))
+                    continue
+            dest_still = work / f"qwen-{index}.png"
+            if on_progress:
+                on_progress(f"Trying in-app Qwen still for beat {index + 1}/{len(beats)}")
+            if infer.generate_image(prompt, dest_still, aspect=aspect, models_dir=models_dir):
+                assignments[beat["id"]] = {"kind": "image", "path": str(dest_still), "source": "qwen"}
+                ledger.append(_entry(f"qwen-{index}", "visual", "qwen", "Generated in-app", "Qwen Image", beat["id"]))
+                continue
 
         render_card(beat["text"], dest_card, size, preset, channel_name, watermark=beat["start"] >= 1.5)
         assignments[beat["id"]] = {"kind": "card", "path": str(dest_card), "source": "reelforge-card"}

@@ -138,8 +138,8 @@ struct Inspector: View {
                         Button("Add Pexels / Pixabay keys in Settings") { state.showSettings = true }
                             .buttonStyle(GhostButtonStyle())
                     }
-                    if !state.pexelsConfigured && !state.pixabayConfigured && state.footageURLs.isEmpty {
-                        Text("Cards, not a real video. Accept will block unless you check cards ok.")
+                    if !state.pexelsConfigured && !state.pixabayConfigured && state.footageURLs.isEmpty && !state.localStatus.models.anyReady {
+                        Text("Cards, not a real video. Add stock keys, drop files, or scan Ready weights. Accept will block unless you check cards ok.")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(RFTheme.accent)
                             .padding(8)
@@ -147,7 +147,12 @@ struct Inspector: View {
                     }
                     Toggle("Cards ok (slide-deck export)", isOn: $state.allowCards)
                     Toggle("Unsplash stills (manual only, off by default)", isOn: $state.useUnsplash)
-                    Toggle("Use ComfyUI / local AI if available", isOn: $state.useLocalAI)
+                    Toggle("Use Ready local models (LTX / Qwen)", isOn: $state.useLocalAI)
+                    if state.useLocalAI && !state.localStatus.models.anyReady {
+                        Text("No weights found. Core still works. Point modelsDir at your safetensors in Settings, or add a Pexels key.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(RFTheme.muted)
+                    }
                     DropZone()
                     if let voice = state.voiceoverURL {
                         Text("VO: \(voice.lastPathComponent) (wins over TTS)")

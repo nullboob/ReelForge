@@ -6,3 +6,7 @@ pillow==11.2.1
 edge-tts==7.0.1
 pyttsx3==2.98
 python-multipart==0.0.20
+
+# Optional Studio extras — install yourself. Never pulled in CI and never vendored:
+#   torch, diffusers, ltx-pipelines, imageio
+# The sold core installer ships with zero diffusion weights.

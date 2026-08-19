@@ -29,8 +29,8 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     keysSection
                     channelSection
+                    modelManagerSection
                     servicesSection
-                    workflowsSection
                     attributionSection
                 }
             }
@@ -147,12 +147,9 @@ struct SettingsView: View {
             sectionTitle("Local services")
             statusRow("Kokoro-82M", state.localStatus.kokoro, "http://127.0.0.1:8880")
             statusRow("AVSpeech", true, "fallback, always available")
-            statusRow("ComfyUI", state.localStatus.comfyUI, state.localStatus.comfyDetail.isEmpty ? "http://127.0.0.1:8188" : state.localStatus.comfyDetail)
-            statusRow("ComfyUI video (LTX / I2V)", state.localStatus.canComfyVideo, "user workflow or LTX nodes")
             statusRow("Ollama", state.localStatus.ollama, state.localStatus.ollamaModel ?? "http://127.0.0.1:11434")
-            statusRow("Automatic1111", state.localStatus.automatic1111, "http://127.0.0.1:7860")
             statusRow("Local whisper", state.localStatus.whisper, "http://127.0.0.1:9000")
-            Text("Preferred TTS: Kokoro-FastAPI at http://127.0.0.1:8880/v1/audio/speech. AVSpeech if Kokoro is down. Piper is not embedded (GPL-3.0). Music is bundled original-safe beds or your imported folder — ACE-Step is not on the Director path.")
+            Text("Preferred TTS: Kokoro-FastAPI at http://127.0.0.1:8880/v1/audio/speech. AVSpeech if Kokoro is down. Piper is not embedded (GPL-3.0). The core installer needs no diffusion weights.")
                 .font(.system(size: 11))
                 .foregroundStyle(RFTheme.muted)
             Button("Re-scan") { state.refreshStatus() }
@@ -160,12 +157,38 @@ struct SettingsView: View {
         }
     }
 
-    private var workflowsSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            sectionTitle("ComfyUI workflows")
-            Text("ComfyUI / LTX are optional sidecars. Stock (Pexels) is first. ReelForge does not vendor ComfyUI or GPL ffmpeg. Export is AVFoundation / VideoToolbox.")
+    private var modelManagerSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionTitle("Model Manager")
+            Text("Creator/Studio optional. Point at weights you already have. ReelForge runs LTX and Qwen itself. The installer never bundles diffusion models.")
                 .font(.system(size: 11))
                 .foregroundStyle(RFTheme.muted)
+            HStack {
+                TextField("Folder that already has .safetensors / .gguf", text: $state.modelsDir)
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: state.modelsDir) { _, value in
+                        UserDefaults.standard.set(value, forKey: "reelforge.modelsDir")
+                    }
+                Button("Choose") { state.pickModelsDir() }
+                    .buttonStyle(GhostButtonStyle())
+            }
+            Button("Scan now") {
+                UserDefaults.standard.set(state.modelsDir, forKey: "reelforge.modelsDir")
+                state.refreshStatus()
+            }
+            .buttonStyle(GhostButtonStyle())
+            ForEach(state.localStatus.models.slots) { slot in
+                HStack {
+                    Circle().fill(slot.ready ? Color.green : RFTheme.muted).frame(width: 8, height: 8)
+                    Text(slot.name)
+                    Spacer()
+                    Text(slot.ready ? "Ready" : "Missing")
+                        .font(.system(size: 11))
+                        .foregroundStyle(RFTheme.muted)
+                }
+                .padding(8)
+                .rfCard(radius: 10)
+            }
         }
     }
 

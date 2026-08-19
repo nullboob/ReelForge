@@ -93,7 +93,7 @@
         <article class="feat"><h3>Upload pack, not just an MP4</h3><p>Title ≤70, hook in the first 150 characters, chapters from 0:00, tags, thumbs, SRT, credits, synthetic-content reminder.</p></article>
         <article class="feat"><h3>Captions in the Shorts safe zone</h3><p>3–6 words on Viral Hook. ~15% top and bottom clear, right-rail clear. Karaoke/pop. Editable on the script desk. SRT export.</p></article>
         <article class="feat"><h3>Fourteen presets, no fake experts</h3><p>We do not ship doctor, lawyer, finance-advisor, or political-expert impersonation presets.</p></article>
-        <article class="feat"><h3>No credit meter</h3><p>Render on your Mac until it is right. Local and private. ComfyUI is an optional sidecar, never required.</p></article>
+        <article class="feat"><h3>No credit meter</h3><p>Render locally until it is right. The core installer ships with zero diffusion weights. Optional Model Manager can use weights you already have.</p></article>
         <article class="feat"><h3>Channel kit</h3><p>Name, colors, logo after the hook, subscribe outro. Applied after you Accept.</p></article>
       </div>
     </section>
@@ -126,7 +126,7 @@
         <div><strong>Ollama</strong> Local scripts and SEO copy</div>
         <div><strong>Kokoro → AVSpeech</strong> Apache TTS on :8880, then the Mac</div>
         <div><strong>Pexels Videos</strong> Automated B-roll. Unsplash off by default</div>
-        <div><strong>ComfyUI / A1111</strong> Your localhost, optional</div>
+        <div><strong>In-app LTX / Qwen</strong> Optional Model Manager. Weights not bundled</div>
       </div>
     </section>
 
@@ -160,7 +160,7 @@
           <div class="cost">$149 <span>one-time</span></div>
           <ul>
             <li>Long-form + queue</li>
-            <li>Optional ComfyUI / Ollama</li>
+            <li>Optional Model Manager + Ollama</li>
             <li>Commercial use</li>
           </ul>
           <a class="btn btn-ghost" href="#download">Coming soon</a>
@@ -173,7 +173,7 @@
       <h2>Straight answers.</h2>
       <details open>
         <summary>Is this Mac only?</summary>
-        <p>Yes. ReelForge is a native SwiftUI macOS 14+ app. Local Windows ComfyUI or Ollama can sit on the LAN if you forward the ports. The editor itself does not become a Windows app.</p>
+        <p>Mac is the native SwiftUI app. Windows is a desktop app (Python + ffmpeg) with the same Accept-gate pipeline. Neither one asks you to install a node graph or 80GB of weights. Core works offline with zero local diffusion models.</p>
       </details>
       <details>
         <summary>Does my data leave the machine?</summary>
@@ -185,7 +185,7 @@
       </details>
       <details>
         <summary>Do I need API keys?</summary>
-        <p>No. Draft + Accept still finishes with AVSpeech, cards, and a bundled bed. A free Pexels key unlocks moving B-roll. Unsplash is manual and off. Kokoro on :8880 is preferred TTS. ComfyUI is optional, never required.</p>
+        <p>No. Draft + Accept still finishes with system TTS, cards, and a bundled bed. A free Pexels key unlocks moving B-roll. Unsplash is manual and off. Kokoro on :8880 is preferred TTS. Model Manager is optional and never downloads weights for you.</p>
       </details>
       <details>
         <summary>Will it upload for me?</summary>

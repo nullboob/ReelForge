@@ -42,6 +42,7 @@ final class AppState: ObservableObject {
     @Published var pexelsConfigured = false
     @Published var pixabayConfigured = false
     @Published var captionLooks: [CaptionLook] = (try? CaptionCatalog.load()) ?? []
+    @Published var modelsDir: String = UserDefaults.standard.string(forKey: "reelforge.modelsDir") ?? ""
     @Published var search = ""
     @Published var player: AVPlayer?
     @Published var awaitingAccept = false
@@ -425,6 +426,19 @@ final class AppState: ObservableObject {
         if panel.runModal() == .OK, let url = panel.url {
             channelKit.musicFolderPath = url.path
             persistChannel()
+        }
+    }
+
+    func pickModelsDir() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Use this folder"
+        if panel.runModal() == .OK, let url = panel.url {
+            modelsDir = url.path
+            UserDefaults.standard.set(url.path, forKey: "reelforge.modelsDir")
+            refreshStatus()
         }
     }
 

@@ -110,11 +110,12 @@
       <label class="toggle"><input type="checkbox" id="use-pixabay" checked /> Pixabay stock video</label>
       <label class="toggle"><input type="checkbox" id="use-unsplash" /> Unsplash stills (manual only, off by default)</label>
       <label class="toggle"><input type="checkbox" id="use-local" checked /> Use Ollama if available</label>
+      <label class="toggle"><input type="checkbox" id="use-local-models" checked /> Use Ready local models (LTX / Qwen)</label>
       <label class="toggle"><input type="checkbox" id="burn" checked /> Burn captions</label>
       <label class="toggle"><input type="checkbox" id="srt" checked /> Export sidecar SRT</label>
       <div class="cards-warn" id="cards-warn" hidden>
         <strong>Cards, not a real video.</strong>
-        No Pexels or Pixabay key. Accept will block unless you check cards ok.
+        No Pexels or Pixabay key and no Ready weights. Accept will block unless you check cards ok.
       </div>
       <label class="toggle"><input type="checkbox" id="allow-cards" /> Cards ok (slide-deck export)</label>
 
@@ -145,6 +146,12 @@
       <label>Imported music folder</label>
       <input id="music-folder" placeholder="C:\\Users\\you\\Music\\beds" />
       <p class="muted">Hook always opens. Logo watermark only after 1.5s. Music is bundled beds or your folder — never CapCut/TikTok tracks. Preferred TTS: Kokoro-FastAPI at http://127.0.0.1:8880/v1/audio/speech.</p>
+      <div class="kicker">Model Manager</div>
+      <p class="muted">Creator/Studio optional. Point at weights you already have. ReelForge runs LTX and Qwen itself. The installer never bundles diffusion models.</p>
+      <label>modelsDir</label>
+      <input id="models-dir" placeholder="D:\\weights or a folder you already have" />
+      <button class="ghost" id="scan-models" type="button">Scan now</button>
+      <div id="model-slots" class="model-slots"></div>
       <button class="primary" id="save-settings">Save keys</button>
     </div>
   </div>

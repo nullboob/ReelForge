@@ -23,4 +23,24 @@ jobs:
           test -f Sources/ReelForgeApp/ReelForgeApp.swift
           test -f Sources/ReelForgeApp/Pipeline/Director.swift
           test -d Sources/ReelForgeCore/Resources/presets
+          test ! -f Sources/ReelForgeApp/Pipeline/ComfyUIClient.swift
+          test ! -f Sources/ReelForgeCore/LocalAI/ComfyWorkflowBuilder.swift
           echo "macOS app sources are present; build them with XcodeGen on macOS 14+."
+
+  python-test:
+    name: Windows core on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install core deps (no diffusion extras)
+        run: |
+          python -m pip install -r windows/requirements.txt
+          ! grep -E '^(torch|diffusers|ltx-pipelines)' windows/requirements.txt
+      - name: Unit tests
+        env:
+          REELFORGE_SKIP_INFER: "1"
+        run: python -m unittest discover -s windows/tests -v

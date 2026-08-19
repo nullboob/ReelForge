@@ -31,9 +31,12 @@ Exports land in `%USERPROFILE%\Videos\ReelForge\<timestamp-slug>\` as MP4 + thum
 
 | Job | Where |
 | --- | --- |
-| Better TTS | Kokoro-FastAPI at `http://127.0.0.1:8880/v1/audio/speech` |
+| Better TTS | Kokoro-FastAPI at `http://127.0.0.1:8880/v1/audio/speech`, else edge-tts |
 | Scripts | Ollama at `localhost:11434` |
-| Stock B-roll | Pexels key in Settings (`Authorization` header) |
+| Stock B-roll | Pexels key in Settings (`Authorization` header), Pixabay second |
+| Local video / stills | Settings → Model Manager. Point `modelsDir` at weights you already have. ReelForge runs LTX / Qwen itself. |
+
+Core works with **zero** local diffusion models. Weights are never bundled and never downloaded for you. `torch` / `diffusers` / `ltx-pipelines` are optional Studio extras — do not add them to `requirements.txt`.
 
 Fallback TTS is Windows SAPI via `pyttsx3`. Piper is **not** embedded. Unsplash is off. Music is a programmatic original-safe bed or a folder you import. Duck 8–12 dB under VO.
 

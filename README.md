@@ -15,6 +15,10 @@ Two clients, same product rules:
 
 Marketing site: [`site/index.html`](site/index.html)
 
+**What we sell (core):** the editor, 30 caption styles, ffmpeg/AVFoundation, OFL fonts, Pexels/Pixabay, Kokoro or edge-tts, and the publish pack. It works with **zero** local diffusion models.
+
+**Studio/Creator extra:** an in-app Model Manager. The user downloads or points at existing weights. ReelForge runs LTX and Qwen itself. We do not ship a node-graph sidecar or 80GB of weights.
+
 ## Windows (install and test today)
 
 Python 3.12, Node is unused, ffmpeg on PATH. No Xcode.
@@ -28,7 +32,7 @@ py -3.12 -m venv .venv
 
 That opens a desktop window (pywebview). If WebView2 fails, it opens the local UI in your browser. Pick Viral Hook, type a topic, Draft, Accept. The MP4 lands in `%USERPROFILE%\Videos\ReelForge\`.
 
-Windows TTS is Kokoro-FastAPI `:8880` if it is up, else Windows SAPI (`pyttsx3`). Piper is not embedded. Stock is Pexels-first; Unsplash is off. Music is a programmatic original-safe bed.
+Windows TTS is Kokoro-FastAPI `:8880` if it is up, else **edge-tts**, else Windows SAPI (`pyttsx3`). Piper is not embedded. Stock is Pexels-first, Pixabay second; Unsplash is off. Music is a programmatic original-safe bed. Core ships with no diffusion weights.
 
 ## macOS requirements
 
@@ -50,7 +54,7 @@ Nothing optional is required to export a playable video. AVSpeech, styled cards,
 | Captions | Whisper HTTP at `:9000` / WhisperKit if present | Used only when a real VO file exists | Optional |
 | Stock video | [Pexels Videos API](https://www.pexels.com/api/) | Free key. Settings / Keychain `REELFORGE_PEXELS_API_KEY` | Optional |
 | Stock photo | Unsplash | **Off by default.** Manual Settings path only. Unsplash API terms: non-automated, must hotlink, cannot charge for API content. | Manual |
-| Local image / video | ComfyUI `:8188`, A1111 `:7860` | Optional sidecars. Stock-first. Not vendored. LTX is preview quality. | Optional |
+| Local image / video | In-app LTX / Qwen via official Python APIs | Optional Model Manager. User points at existing weights. Never bundled. | Optional |
 | Music | Bundled original-safe beds + user folder | Duck **8–12 dB** under VO. Never CapCut/TikTok/copyrighted downloads. License ledger on the project. | Built-in |
 | Compose / export | AVFoundation / VideoToolbox | H.264 MP4 to `~/Movies/ReelForge/<video-folder>/`. ffmpeg not vendored. | Built-in |
 | YouTube upload | Data API key in Settings | Field stored. Upload button is disabled / coming soon. No fake upload | Optional |
@@ -58,10 +62,10 @@ Nothing optional is required to export a playable video. AVSpeech, styled cards,
 Footage order per beat, never stall:
 
 1. User local video / images
-2. **Pexels Videos API** (`Authorization` header, `/videos/search`, page 2+ to skip first-page generic office/nature/city-aerial). Per-channel `video.id` blacklist.
-3. Optional ComfyUI still/video if you turned local AI on
+2. **Pexels Videos API** (`Authorization` header, `/videos/search`, page 2+ to skip first-page generic office/nature/city-aerial). Per-channel `video.id` blacklist. Pixabay second.
+3. In-app LTX hook clip + Qwen stills (Ken Burns) if Model Manager marked those weights Ready
 4. Unsplash stills only if you explicitly enable the manual toggle
-5. Generated gradient / type cards
+5. Generated gradient / type cards — only if **cards ok**
 
 Picture rules: first beat **must** be a hook (builder fails otherwise). First 1.5s = on-screen claim + VO start + picture change. No logo open. Captions stay in the Shorts safe zone (~15% top and bottom, right rail clear). Viral Hook is 3–6 words/line. Music ducks 8–12 dB. Thumbnails are 3–6 huge words. Title promise appears in title + thumb + first 3s VO.
 
@@ -166,14 +170,9 @@ ollama pull llama3.2
 # POST /v1/audio/speech  (OpenAI-compatible, Apache-2.0)
 ```
 
-ComfyUI on `http://127.0.0.1:8188` is an **optional sidecar** for local images / LTX video. Stock-first. Do not vendor ComfyUI. Export API-format workflows to:
+**Model Manager** (Creator/Studio, optional): on first launch ReelForge scans folders you already have (`modelsDir`, plus common weight locations). If `ltx-2.3-22b-distilled.safetensors` or `qwen-image` is found, that slot is **Ready** with no download. Inference uses official Python APIs (`ltx-pipelines` DistilledPipeline and/or `diffusers.LTX2Pipeline` / `diffusers.QwenImagePipeline`). One pipeline at a time. Core works with **zero** local diffusion models. Weights are never bundled and never downloaded in CI.
 
-```
-~/Library/Application Support/ReelForge/comfy-t2i.json
-~/Library/Application Support/ReelForge/comfy-i2v.json
-```
-
-Automatic1111 on `7860` is a secondary image API. Music is **bundled original-safe beds** plus a user-imported folder. ACE-Step is not on the Director path. Never download CapCut, TikTok, or copyrighted tracks.
+Music is **bundled original-safe beds** plus a user-imported folder. ACE-Step is not on the Director path. Never download CapCut, TikTok, or copyrighted tracks.
 
 ## Architecture
 
@@ -184,7 +183,7 @@ The edit is a **JSON storyboard plus a deterministic AVFoundation renderer**. An
 3. **Storyboard** — JSON beats. First beat **must** be a hook (≥1.5s). Builder fails on greeting / logo opens. Optional outro only.
 4. **Voice** — dropped VO, Kokoro-FastAPI (`:8880/v1/audio/speech`), then Mac AVSpeech or Windows SAPI. Per-project lock. Pauses at commas.
 5. **Captions** — 3–6 words on Viral Hook; Shorts ~15% top/bottom + right rail clear; karaoke/pop; SRT.
-6. **Footage** — local → Pexels Videos (`Authorization`, skip first-page generic, per-channel `video.id` blacklist) → optional ComfyUI → cards. Unsplash off.
+6. **Footage** — local → Pexels / Pixabay → in-app LTX hook + Qwen stills if Ready → cards only if `allowCards`. Unsplash off.
 7. **Music** — bundled original-safe bed or imported folder. Duck 8–12 dB under VO. License ledger on the project.
 8. **Compose** — per-beat H.264 clips (Ken Burns, grade, captions, logo after 1.5s). Mac: AVFoundation / VideoToolbox. Windows: ffmpeg (not vendored).
 9. **Package + export** — title ≤70, description hook in first 150 chars, chapters from 0:00, tags, 1–3 thumbs, credits, synthetic-content reminder. No auto-upload.

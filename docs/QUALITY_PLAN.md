@@ -13,6 +13,10 @@ Exports should be uploadable as a finished Short with no rework. A pink-to-black
 - Ken Burns on stills, gentle zoom pulse on video, eq/vignette grade, optional grain.
 - Export target: 1080×1920 (or preset aspect), 30 fps, libx264 CRF 18, yuv420p, AAC 192k, music ducked 8–12 dB under VO.
 - Caption safe area: below the top ~12% and above the bottom ~18%, plus the 9:16 right rail.
+- Captions **replace**, never stack. ASS/PNG windows are exclusive. The hook beat is one clean card for the full hold (≥1.5s).
+- Cards and stock **cover** 1080×1920 (scale+crop, `setsar=1`). No letterbox bars. A render with overlapping captions or black bars is not done.
+- Footage ladder: local files → Pexels / Pixabay → in-app LTX hook + Qwen stills (if Model Manager marked them Ready) → cards only if `allowCards`.
+- Inference is in-process via official Python APIs. The sold UI does not mention or require a node-graph sidecar. Hidden `REELFORGE_COMFY_URL` is an engineer hatch only. CI never downloads weights.
 
 ## The 30 styles
 
@@ -27,6 +31,7 @@ Viral Hook defaults to **dynamic-minimal** (white karaoke, no yellow). Hormozi C
 These paths are implemented but cannot be proven from Linux CI:
 
 - Real Pexels / Pixabay downloads with API keys on Windows or Mac.
+- In-app LTX / Qwen on a machine that already has Ready weights (never downloaded here).
 - Kokoro-FastAPI word-timed speech at `:8880`.
 - edge-tts on a machine that can reach Microsoft’s neural endpoint (then ffmpeg transcode to WAV).
 - Mac app compile / AVFoundation export (this environment is Linux; do not treat `swift test` as a Mac build).

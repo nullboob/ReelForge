@@ -76,6 +76,22 @@ def get_settings() -> dict:
     return load_settings()
 
 
+@app.get("/api/models")
+def get_models() -> dict:
+    settings = load_settings()
+    from reelforge.infer import available
+    return available(settings.get("modelsDir") or None)
+
+
+@app.post("/api/models")
+def post_models(payload: dict) -> dict:
+    if "modelsDir" in payload:
+        save_settings({"modelsDir": payload.get("modelsDir") or ""})
+    settings = load_settings()
+    from reelforge.infer import available
+    return available(settings.get("modelsDir") or None)
+
+
 @app.post("/api/reveal")
 def reveal() -> dict:
     path = DIRECTOR.project.get("exportPath")

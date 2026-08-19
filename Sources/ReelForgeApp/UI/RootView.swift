@@ -73,7 +73,7 @@ struct TopBar: View {
     private var statusChips: some View {
         HStack(spacing: 8) {
             chip(state.localStatus.ttsEngine, on: true)
-            chip(state.localStatus.comfyUI ? "ComfyUI" : "Comfy off", on: state.localStatus.comfyUI)
+            chip(state.localStatus.models.anyReady ? "Models Ready" : "Core (no weights)", on: state.localStatus.models.anyReady)
             chip(state.localStatus.ollama ? "Ollama" : "LLM off", on: state.localStatus.ollama)
             chip(state.pexelsConfigured ? "Pexels" : "No Pexels", on: state.pexelsConfigured)
             if state.useUnsplash {

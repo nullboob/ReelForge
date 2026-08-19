@@ -37,7 +37,7 @@ struct FootageService {
             warnings.append("CARDS ONLY: no Pexels/Pixabay key and no local files. This will look like a slide deck, not a finished Short.")
         }
         if useUnsplash, unsplashKey == nil {
-            warnings.append("No Unsplash key — stills skipped unless cards or ComfyUI fill in.")
+            warnings.append("No Unsplash key — stills skipped unless cards or Ready local models fill in.")
         }
 
         for (index, beat) in beats.enumerated() {
@@ -117,23 +117,31 @@ struct FootageService {
 
             if useLocalAI {
                 let prompt = "\(beat.text). \(preset.aiImageStyleSuffix)"
+                let modelsDir = UserDefaults.standard.string(forKey: "reelforge.modelsDir")
+                let aspectLabel = aspect == .landscape ? "16:9" : (aspect == .square ? "1:1" : "9:16")
                 if index == 0 || preset.aiVideoEnabled {
-                    let destVideo = workDir.appendingPathComponent("comfy-\(index).mp4")
-                    await onProgress("Trying ComfyUI video for beat \(index + 1)/\(beats.count)")
-                    if await LocalVideoClient.shared.generateVideo(prompt: prompt, startImage: nil, to: destVideo),
-                       FileManager.default.fileExists(atPath: destVideo.path) {
+                    let destVideo = workDir.appendingPathComponent("ltx-\(index).mp4")
+                    await onProgress("Trying in-app LTX for beat \(index + 1)/\(beats.count)")
+                    if await LocalVideoClient.shared.generateVideo(
+                        prompt: prompt,
+                        startImage: nil,
+                        to: destVideo,
+                        aspect: aspectLabel,
+                        seconds: min(4, beat.duration),
+                        modelsDir: modelsDir
+                    ), FileManager.default.fileExists(atPath: destVideo.path) {
                         assignments[beat.id] = FootageAssignment(
-                            asset: AssetRef(id: "comfy-video-\(index)", kind: .video, relativePath: destVideo.lastPathComponent, beatID: beat.id),
+                            asset: AssetRef(id: "ltx-\(index)", kind: .video, relativePath: destVideo.lastPathComponent, beatID: beat.id),
                             fileURL: destVideo
                         )
                         continue
                     }
                 }
-                await onProgress("Asking ComfyUI for still \(index + 1)/\(beats.count)")
-                if await LocalAIClient.shared.generateImage(prompt: prompt, size: size, to: destImage),
+                await onProgress("Trying in-app Qwen still for beat \(index + 1)/\(beats.count)")
+                if await LocalAIClient.shared.generateImage(prompt: prompt, size: size, to: destImage, aspect: aspectLabel),
                    FileManager.default.fileExists(atPath: destImage.path) {
                     assignments[beat.id] = FootageAssignment(
-                        asset: AssetRef(id: "ai-\(index)", kind: .image, relativePath: destImage.lastPathComponent, beatID: beat.id),
+                        asset: AssetRef(id: "qwen-\(index)", kind: .image, relativePath: destImage.lastPathComponent, beatID: beat.id),
                         fileURL: destImage
                     )
                     continue

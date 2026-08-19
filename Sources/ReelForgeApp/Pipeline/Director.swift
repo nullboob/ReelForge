@@ -223,7 +223,7 @@ final class Director: @unchecked Sendable {
         try ProjectStore.save(project)
 
         try Task.checkCancellation()
-        await emit(.footage, "Pexels video first, then optional local AI, then cards")
+        await emit(.footage, "Pexels / Pixabay first, then in-app LTX/Qwen if Ready, then cards")
         let footage = await footageService.gather(
             beats: storyboard.beats,
             preset: request.preset,

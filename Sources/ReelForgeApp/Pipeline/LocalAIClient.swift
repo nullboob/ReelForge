@@ -3,9 +3,7 @@ import Foundation
 struct LocalAIStatus: Equatable {
     var ollama = false
     var automatic1111 = false
-    var comfyUI = false
-    var comfyDetail = ""
-    var canComfyVideo = false
+    var models = ModelScan(slots: [], videoReady: false, imageReady: false, anyReady: false, scannedFiles: 0, modelsDir: "")
     var aceStep = false
     var mlxImage = false
     var whisper = false
@@ -14,9 +12,9 @@ struct LocalAIStatus: Equatable {
     var ttsEngine = "AVSpeech"
     var ollamaModel: String?
 
-    var anyImage: Bool { comfyUI || automatic1111 || mlxImage }
+    var anyImage: Bool { models.imageReady || automatic1111 || mlxImage }
     var anyLLM: Bool { ollama }
-    var anyVideo: Bool { canComfyVideo }
+    var anyVideo: Bool { models.videoReady }
 }
 
 actor LocalAIClient {
@@ -31,7 +29,6 @@ actor LocalAIClient {
 
     func probe() async -> LocalAIStatus {
         async let ollama = probeOllama()
-        async let comfy = ComfyUIClient.shared.capabilities(force: true)
         async let a1111 = isUp(URL(string: "http://127.0.0.1:7860/sdapi/v1/sd-models")!)
         async let ace = ACEStepClient.shared.probe()
         async let mlx = isUp(URL(string: "http://127.0.0.1:7861/health")!)
@@ -41,15 +38,13 @@ actor LocalAIClient {
         async let kokoro = isUp(URL(string: "http://127.0.0.1:8880/v1/models")!)
             || isUp(URL(string: "http://127.0.0.1:8880/")!)
         let model = await ollama
-        let comfyCaps = await comfy
         let kokoroUp = await kokoro
         let tts = kokoroUp ? "Kokoro" : "AVSpeech"
+        let modelsDir = UserDefaults.standard.string(forKey: "reelforge.modelsDir")
         return LocalAIStatus(
             ollama: model != nil,
             automatic1111: await a1111,
-            comfyUI: comfyCaps.online,
-            comfyDetail: comfyCaps.detail,
-            canComfyVideo: comfyCaps.canImageToVideo,
+            models: ModelCatalog.scan(modelsDir: modelsDir),
             aceStep: await ace,
             mlxImage: await mlx,
             whisper: await whisper,
@@ -99,10 +94,12 @@ actor LocalAIClient {
         return text
     }
 
-    func generateImage(prompt: String, size: (Int, Int), to url: URL) async -> Bool {
-        if await ComfyUIClient.shared.generateImage(prompt: prompt, size: size, to: url) { return true }
+    func generateImage(prompt: String, size: (Int, Int), to url: URL, aspect: String = "9:16") async -> Bool {
+        let modelsDir = UserDefaults.standard.string(forKey: "reelforge.modelsDir")
+        if InferClient.generateImage(prompt: prompt, to: url, aspect: aspect, modelsDir: modelsDir) {
+            return true
+        }
         if await generateA1111(prompt: prompt, size: size, to: url) { return true }
-        if await generateGeneric(prompt: prompt, size: size, to: url) { return true }
         return false
     }
 

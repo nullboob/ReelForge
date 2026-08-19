@@ -20,6 +20,8 @@ DEFAULTS: dict[str, Any] = {
     "exportSRT": True,
     "voiceIdentifier": None,
     "voiceSpeed": 1.0,
+    "modelsDir": "",
+    "useLocalModels": True,
     "channel": {
         "name": "",
         "primaryHex": "#FF4D6D",

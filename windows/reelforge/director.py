@@ -48,6 +48,8 @@ class Director:
 
     def status(self) -> dict[str, Any]:
         settings = settings_store.load()
+        from reelforge import models
+        catalog = models.scan(settings.get("modelsDir") or None)
         return {
             "kokoro": speech.probe_kokoro(),
             "ollama": speech.probe_ollama(),
@@ -58,6 +60,10 @@ class Director:
             "stockReady": bool(settings.get("pexelsKey") or settings.get("pixabayKey")),
             "captionStyles": caption_styles.all_styles(),
             "voices": [{"id": vid, "name": name} for vid, name in speech.KOKORO_VOICES],
+            "models": catalog,
+            "videoReady": catalog.get("videoReady"),
+            "imageReady": catalog.get("imageReady"),
+            "anyReady": catalog.get("anyReady"),
         }
 
     def new_project(self) -> dict[str, Any]:
@@ -90,6 +96,7 @@ class Director:
             "usePixabay": payload.get("usePixabay", True),
             "useUnsplash": bool(payload.get("useUnsplash")),
             "useLocalAI": payload.get("useLocalAI", True),
+            "useLocalModels": payload.get("useLocalModels", settings_store.load().get("useLocalModels", True)),
             "voiceIdentifier": payload.get("voiceIdentifier"),
             "captionStyleID": style_id,
             "allowCards": bool(payload.get("allowCards")),
@@ -224,6 +231,8 @@ class Director:
             payload.get("localFiles") or [],
             pixabay_key=settings.get("pixabayKey") or None,
             use_pixabay=bool(settings.get("usePixabay", True)),
+            use_local_models=bool(settings.get("useLocalModels", True)),
+            models_dir=settings.get("modelsDir") or None,
             on_progress=lambda detail: self._emit(detail, 0.5),
         )
         self.project["warnings"] = list(self.project.get("warnings") or []) + warnings
@@ -232,7 +241,8 @@ class Director:
         if cards_only and not allow_cards:
             raise ValueError(
                 "This export would be cards, not a real video. Add a Pexels or Pixabay key, "
-                "drop local footage, or check “cards ok” if you really want a type-card export."
+                "drop local footage, point Model Manager at Ready weights, or check “cards ok” "
+                "if you really want a type-card export."
             )
 
         self._emit("Original-safe bed, ducked 8–12 dB under VO", 0.62)

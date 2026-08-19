@@ -32,17 +32,19 @@ function renderStatus(status) {
   box.innerHTML = "";
   box.append(
     chip(status.ttsEngine || "edge-tts", true),
+    chip(status.anyReady ? "Models Ready" : "Core (no weights)", !!status.anyReady),
     chip(status.pexels ? "Pexels" : "No Pexels", !!status.pexels),
     chip(status.pixabay ? "Pixabay" : "No Pixabay", !!status.pixabay),
     chip(status.ollama ? "Ollama" : "LLM off", !!status.ollama),
     chip(status.ffmpeg ? "ffmpeg" : "No ffmpeg", !!status.ffmpeg),
     chip(status.kokoro ? "Kokoro" : "Kokoro off", !!status.kokoro),
   );
+  renderModelSlots(status.models);
   $("engine").textContent = `Engine: ${status.ttsEngine || "edge-tts"}`;
   state.styles = status.captionStyles || state.styles;
   state.stockReady = !!status.stockReady;
   renderStyles();
-  $("cards-warn").hidden = state.stockReady;
+  $("cards-warn").hidden = state.stockReady || !!status.anyReady;
   const voice = $("voice");
   voice.innerHTML = `<option value="">Auto (Kokoro → Windows)</option>`;
   for (const item of status.voices || []) {
@@ -92,6 +94,18 @@ function defaultStyleForPreset(presetID) {
 function styleSwatch(style) {
   const stops = (style.gradient && style.gradient.length ? style.gradient : [style.fill || "#fff", style.highlight || style.plateFill || "#111"]).join(",");
   return `linear-gradient(135deg, ${stops})`;
+}
+
+function renderModelSlots(catalog) {
+  const box = $("model-slots");
+  if (!box) return;
+  box.innerHTML = "";
+  for (const slot of catalog?.slots || []) {
+    const row = document.createElement("div");
+    row.className = "model-slot" + (slot.ready ? " on" : "");
+    row.innerHTML = `<span>${slot.name}</span><span>${slot.ready ? "Ready" : "Missing"}</span>`;
+    box.appendChild(row);
+  }
 }
 
 function renderStyles() {
@@ -173,6 +187,7 @@ function draftPayload() {
     target: state.target,
     seriesName: $("series").value,
     useLocalAI: $("use-local").checked,
+    useLocalModels: $("use-local-models").checked,
     usePexels: $("use-pexels").checked,
     usePixabay: $("use-pixabay").checked,
     useUnsplash: $("use-unsplash").checked,
@@ -229,6 +244,7 @@ async function boot() {
   $("use-pixabay").checked = settings.usePixabay !== false;
   $("use-unsplash").checked = !!settings.useUnsplash;
   $("use-local").checked = settings.useLocalAI !== false;
+  $("use-local-models").checked = settings.useLocalModels !== false;
   $("allow-cards").checked = !!settings.allowCards;
   state.captionStyleID = settings.captionStyleID || defaultStyleForPreset(state.selected);
   $("pexels-key").value = settings.pexelsKey || "";
@@ -238,6 +254,7 @@ async function boot() {
   $("accent").value = settings.channel?.accentHex || "#E8C39A";
   $("outro").checked = settings.channel?.outroEnabled !== false;
   $("music-folder").value = settings.channel?.musicFolderPath || "";
+  $("models-dir").value = settings.modelsDir || "";
 }
 
 $("search").oninput = renderPresets;
@@ -264,6 +281,8 @@ $("save-settings").onclick = async () => {
       allowCards: $("allow-cards").checked,
       useUnsplash: $("use-unsplash").checked,
       useLocalAI: $("use-local").checked,
+      useLocalModels: $("use-local-models").checked,
+      modelsDir: $("models-dir").value,
       burnCaptions: $("burn").checked,
       exportSRT: $("srt").checked,
       voiceIdentifier: $("voice").value || null,
@@ -277,6 +296,13 @@ $("save-settings").onclick = async () => {
     }),
   });
   $("settings").hidden = true;
+};
+$("scan-models").onclick = async () => {
+  const catalog = await api("/api/models", {
+    method: "POST",
+    body: JSON.stringify({ modelsDir: $("models-dir").value }),
+  });
+  renderModelSlots(catalog);
 };
 $("copy-title").onclick = () => navigator.clipboard.writeText($("pack-title").textContent);
 $("copy-desc").onclick = () => navigator.clipboard.writeText($("pack-desc").textContent);
