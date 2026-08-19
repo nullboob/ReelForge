@@ -1,14 +1,36 @@
 # ReelForge
 
-A native macOS app for people starting a YouTube channel. It does not compete with CapCut on a timeline. It competes on a **YouTube-ready package**: you approve the script, we render locally with YouTube-safe audio, and you leave with an upload pack — not just an MP4.
+A desktop app for people starting a YouTube channel. It does not compete with CapCut on a timeline. It competes on a **YouTube-ready package**: you approve the script, we render locally with YouTube-safe audio, and you leave with an upload pack — not just an MP4.
 
 There is **no silent path** from topic to finished video. Draft → **Accept script** → compose/export. YouTube 2026 inauthentic-content review is at the channel level; firehose automation is a liability.
 
 Faceless channels first. Shorts (9:16) and long-form (16:9).
 
+Two clients, same product rules:
+
+| App | Who it is for | How to run |
+| --- | --- | --- |
+| **macOS** (SwiftUI + AVFoundation) | Mac with Xcode | `xcodegen generate` then open `ReelForge.xcodeproj` |
+| **Windows** (Python + ffmpeg) | Windows 10/11 test PCs | [`windows/README.md`](windows/README.md) — `python -m reelforge` |
+
 Marketing site: [`site/index.html`](site/index.html)
 
-## Requirements
+## Windows (install and test today)
+
+Python 3.12, Node is unused, ffmpeg on PATH. No Xcode.
+
+```bat
+cd windows
+py -3.12 -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\python -m reelforge
+```
+
+That opens a desktop window (pywebview). If WebView2 fails, it opens the local UI in your browser. Pick Viral Hook, type a topic, Draft, Accept. The MP4 lands in `%USERPROFILE%\Videos\ReelForge\`.
+
+Windows TTS is Kokoro-FastAPI `:8880` if it is up, else Windows SAPI (`pyttsx3`). Piper is not embedded. Stock is Pexels-first; Unsplash is off. Music is a programmatic original-safe bed.
+
+## macOS requirements
 
 - macOS 14+ (Apple Silicon first; Intel should work)
 - Xcode 15+
@@ -160,17 +182,18 @@ The edit is a **JSON storyboard plus a deterministic AVFoundation renderer**. An
 1. **Draft script** — user script, Ollama, or the template writer. Stops here.
 2. **Accept script** — required human gate. Edit hook, beats, and captions. No silent path to MP4.
 3. **Storyboard** — JSON beats. First beat **must** be a hook (≥1.5s). Builder fails on greeting / logo opens. Optional outro only.
-4. **Voice** — dropped VO, Kokoro-FastAPI (`:8880/v1/audio/speech`), or AVSpeech. Per-project lock. Pauses at commas.
+4. **Voice** — dropped VO, Kokoro-FastAPI (`:8880/v1/audio/speech`), then Mac AVSpeech or Windows SAPI. Per-project lock. Pauses at commas.
 5. **Captions** — 3–6 words on Viral Hook; Shorts ~15% top/bottom + right rail clear; karaoke/pop; SRT.
 6. **Footage** — local → Pexels Videos (`Authorization`, skip first-page generic, per-channel `video.id` blacklist) → optional ComfyUI → cards. Unsplash off.
 7. **Music** — bundled original-safe bed or imported folder. Duck 8–12 dB under VO. License ledger on the project.
-8. **Compose** — per-beat H.264 clips (Ken Burns, grade, captions, logo after 1.5s) via AVFoundation / VideoToolbox.
+8. **Compose** — per-beat H.264 clips (Ken Burns, grade, captions, logo after 1.5s). Mac: AVFoundation / VideoToolbox. Windows: ffmpeg (not vendored).
 9. **Package + export** — title ≤70, description hook in first 150 chars, chapters from 0:00, tags, 1–3 thumbs, credits, synthetic-content reminder. No auto-upload.
 
 ```
 Sources/ReelForgeCore/     SPM library, Linux-testable
 Sources/ReelForgeApp/      SwiftUI + AVFoundation Mac app
 Tests/ReelForgeTests/      storyboard, captions, presets, publish pack
+windows/                   Python desktop app (FastAPI + pywebview + ffmpeg)
 site/                      sales page
 ```
 
@@ -205,9 +228,10 @@ On Linux or macOS, without the Mac SDK:
 
 ```bash
 swift test
+cd windows && python -m unittest discover -s tests -v
 ```
 
-CI runs that job. It does **not** compile the SwiftUI/AVFoundation target.
+CI runs the Swift job. It does **not** compile the SwiftUI/AVFoundation target. Windows unit tests cover storyboard hook + caption split + publish pack.
 
 On a Mac, after `xcodegen generate`, build the **ReelForge** scheme in Xcode.
 

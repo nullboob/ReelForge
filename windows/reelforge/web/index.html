@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ReelForge</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="mark"></span>
+      <strong>ReelForge</strong>
+      <span class="auto">AUTO</span>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="top-actions">
+      <button class="ghost" id="btn-new">New</button>
+      <button class="ghost" id="btn-settings">Settings</button>
+      <button class="ghost" id="btn-reveal" disabled>Export</button>
+    </div>
+  </header>
+
+  <main class="app">
+    <aside class="gallery">
+      <div class="kicker">Presets</div>
+      <input id="search" type="search" placeholder="Search styles" />
+      <div id="presets" class="preset-list"></div>
+    </aside>
+
+    <section class="preview">
+      <div class="stage" id="stage">
+        <div class="empty" id="empty">
+          <div class="spark">✦</div>
+          <h2>Type a topic, draft, then Accept</h2>
+          <p>The director writes a script. You accept it. Then we speak, caption, stock, and export a YouTube pack — not a silent firehose.</p>
+        </div>
+        <video id="player" controls playsinline hidden></video>
+      </div>
+      <div class="progress" id="progress-wrap">
+        <div class="bar"><i id="bar"></i></div>
+        <div id="progress-detail">Type a topic, then accept the script before we render.</div>
+      </div>
+      <div class="desk" id="desk" hidden>
+        <div class="desk-head">
+          <strong>Script desk</strong>
+          <span>YouTube reviews inauthentic firehose at the channel. Accept is required.</span>
+        </div>
+        <label>Hook — first 3s promise</label>
+        <input id="desk-hook" />
+        <label>Beats</label>
+        <div id="desk-body"></div>
+        <button class="ghost" id="add-beat">Add beat</button>
+        <label>CTA</label>
+        <input id="desk-cta" />
+        <label>Captions (edit before export)</label>
+        <div id="desk-captions"></div>
+        <div class="beats-meta" id="desk-meta"></div>
+        <button class="primary" id="desk-accept">Accept script</button>
+      </div>
+      <div class="pack" id="pack" hidden>
+        <div class="desk-head">
+          <strong>Publish pack</strong>
+          <div>
+            <button class="ghost" id="copy-title">Copy title</button>
+            <button class="ghost" id="copy-desc">Copy description</button>
+            <button class="ghost" disabled title="YouTube Data API OAuth is not wired. Coming soon.">Upload</button>
+          </div>
+        </div>
+        <h3 id="pack-title"></h3>
+        <pre id="pack-desc"></pre>
+        <p class="gold" id="pack-reminder"></p>
+        <p class="muted" id="pack-tags"></p>
+        <p class="muted" id="pack-chapters"></p>
+      </div>
+    </section>
+
+    <aside class="inspector">
+      <div class="kicker">Create</div>
+      <label>Channel type</label>
+      <select id="channel-type">
+        <option value="facelessFacts">Faceless facts</option>
+        <option value="listicle">Listicle</option>
+        <option value="explainer">Explainer</option>
+        <option value="storytime">Storytime</option>
+        <option value="product">Product</option>
+        <option value="commentary">Commentary</option>
+        <option value="news">News</option>
+      </select>
+      <label>Target</label>
+      <div class="seg" id="target">
+        <button data-value="short" class="on">YouTube Short</button>
+        <button data-value="longForm">Long-form</button>
+      </div>
+      <label>Series / pillar</label>
+      <input id="series" placeholder="Optional series name" />
+      <label>Topic or full script</label>
+      <textarea id="topic" placeholder="3 reasons your morning walk beats the gym"></textarea>
+
+      <div class="kicker">Voice</div>
+      <div class="gold" id="engine">Engine: SAPI</div>
+      <select id="voice"></select>
+
+      <div class="kicker">Sources</div>
+      <label class="toggle"><input type="checkbox" id="use-pexels" checked /> Pexels stock video</label>
+      <label class="toggle"><input type="checkbox" id="use-unsplash" /> Unsplash stills (manual only, off by default)</label>
+      <label class="toggle"><input type="checkbox" id="use-local" checked /> Use Ollama if available</label>
+      <label class="toggle"><input type="checkbox" id="burn" checked /> Burn captions</label>
+      <label class="toggle"><input type="checkbox" id="srt" checked /> Export sidecar SRT</label>
+
+      <p class="error" id="error" hidden></p>
+      <button class="primary" id="btn-draft">Draft script</button>
+      <button class="ghost" id="btn-accept" hidden>Accept script</button>
+    </aside>
+  </main>
+
+  <div class="modal" id="settings" hidden>
+    <div class="sheet">
+      <div class="desk-head">
+        <strong>Settings</strong>
+        <button class="ghost" id="settings-close">Done</button>
+      </div>
+      <label>Pexels API key (REELFORGE_PEXELS_API_KEY)</label>
+      <input id="pexels-key" type="password" placeholder="Paste key" />
+      <p class="muted">Pexels Videos is the automated B-roll path. Unsplash stays off by default.</p>
+      <label>Channel name</label>
+      <input id="channel-name" />
+      <label>Primary color</label>
+      <input id="primary" type="color" value="#FF4D6D" />
+      <label>Accent color</label>
+      <input id="accent" type="color" value="#E8C39A" />
+      <label class="toggle"><input type="checkbox" id="outro" checked /> Outro subscribe card</label>
+      <label>Imported music folder</label>
+      <input id="music-folder" placeholder="C:\\Users\\you\\Music\\beds" />
+      <p class="muted">Hook always opens. Logo watermark only after 1.5s. Music is bundled beds or your folder — never CapCut/TikTok tracks. Preferred TTS: Kokoro-FastAPI at http://127.0.0.1:8880/v1/audio/speech.</p>
+      <button class="primary" id="save-settings">Save keys</button>
+    </div>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

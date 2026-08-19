@@ -13,3 +13,7 @@ xcuserdata/
 !Fixtures/**/*.json
 .idea/
 .vscode/
+windows/.venv/
+windows/.pydeps/
+windows/**/__pycache__/
+*.pyc
