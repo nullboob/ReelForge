@@ -14,7 +14,9 @@ let package = Package(
             name: "ReelForgeCore",
             path: "Sources/ReelForgeCore",
             resources: [
-                .copy("Resources/presets")
+                .copy("Resources/presets"),
+                .copy("Resources/caption-styles"),
+                .copy("Resources/fonts")
             ]
         ),
         .testTarget(

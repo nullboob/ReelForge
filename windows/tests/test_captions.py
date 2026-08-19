@@ -28,8 +28,8 @@ class CaptionTests(unittest.TestCase):
 
     def test_safe_area_clears_shorts_chrome(self):
         x, y, w, h = safe_area(1080, 1920)
-        self.assertGreaterEqual(y / 1920, 0.14)
-        self.assertGreaterEqual((1920 - (y + h)) / 1920, 0.14)
+        self.assertGreaterEqual(y / 1920, 0.17)
+        self.assertGreaterEqual((1920 - (y + h)) / 1920, 0.11)
         self.assertLessEqual((x + w) / 1080, 0.83)
 
     def test_srt_covers_cues(self):

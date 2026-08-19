@@ -100,14 +100,52 @@ struct Inspector: View {
                 section("Captions") {
                     Toggle("Burn captions into the video", isOn: $state.burnCaptions)
                     Toggle("Also export sidecar SRT", isOn: $state.exportSRT)
+                    Text(state.captionLooks.first(where: { $0.id == state.captionStyleID })?.name ?? "Caption style")
+                        .font(.system(size: 11))
+                        .foregroundStyle(RFTheme.gold)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 86), spacing: 8)], spacing: 8) {
+                        ForEach(state.captionLooks) { look in
+                            Button {
+                                state.captionStyleID = look.id
+                                state.persistCaptionStyle()
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(styleGradient(look))
+                                        .frame(height: 28)
+                                    Text(look.name)
+                                        .font(.system(size: 9, weight: .medium))
+                                        .foregroundStyle(RFTheme.text)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.leading)
+                                }
+                                .padding(6)
+                                .background(RFTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .stroke(state.captionStyleID == look.id ? RFTheme.gold : RFTheme.border, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
 
                 section("Sources") {
                     Toggle("Pexels stock video", isOn: $state.usePexels)
-                    if state.usePexels && !state.pexelsConfigured {
-                        Button("Add Pexels key in Settings") { state.showSettings = true }
+                    Toggle("Pixabay stock video", isOn: $state.usePixabay)
+                    if (state.usePexels && !state.pexelsConfigured) || (state.usePixabay && !state.pixabayConfigured) {
+                        Button("Add Pexels / Pixabay keys in Settings") { state.showSettings = true }
                             .buttonStyle(GhostButtonStyle())
                     }
+                    if !state.pexelsConfigured && !state.pixabayConfigured && state.footageURLs.isEmpty {
+                        Text("Cards, not a real video. Accept will block unless you check cards ok.")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(RFTheme.accent)
+                            .padding(8)
+                            .background(RFTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    Toggle("Cards ok (slide-deck export)", isOn: $state.allowCards)
                     Toggle("Unsplash stills (manual only, off by default)", isOn: $state.useUnsplash)
                     Toggle("Use ComfyUI / local AI if available", isOn: $state.useLocalAI)
                     DropZone()
@@ -203,6 +241,15 @@ struct Inspector: View {
                 .foregroundStyle(RFTheme.muted)
             content()
         }
+    }
+
+    private func styleGradient(_ look: CaptionLook) -> LinearGradient {
+        let stops = look.gradient.isEmpty ? [look.fill, look.highlight] : look.gradient
+        return LinearGradient(
+            colors: stops.prefix(3).map { Color(hex: $0) },
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 
     private func labeled(_ title: String, @ViewBuilder content: () -> some View) -> some View {

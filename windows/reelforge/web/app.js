@@ -3,6 +3,9 @@ const state = {
   selected: "viral-hook",
   snapshot: null,
   target: "short",
+  styles: [],
+  captionStyleID: "dynamic-minimal",
+  stockReady: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -28,13 +31,18 @@ function renderStatus(status) {
   const box = $("chips");
   box.innerHTML = "";
   box.append(
-    chip(status.ttsEngine || "SAPI", true),
+    chip(status.ttsEngine || "edge-tts", true),
     chip(status.pexels ? "Pexels" : "No Pexels", !!status.pexels),
+    chip(status.pixabay ? "Pixabay" : "No Pixabay", !!status.pixabay),
     chip(status.ollama ? "Ollama" : "LLM off", !!status.ollama),
     chip(status.ffmpeg ? "ffmpeg" : "No ffmpeg", !!status.ffmpeg),
     chip(status.kokoro ? "Kokoro" : "Kokoro off", !!status.kokoro),
   );
-  $("engine").textContent = `Engine: ${status.ttsEngine || "SAPI"}`;
+  $("engine").textContent = `Engine: ${status.ttsEngine || "edge-tts"}`;
+  state.styles = status.captionStyles || state.styles;
+  state.stockReady = !!status.stockReady;
+  renderStyles();
+  $("cards-warn").hidden = state.stockReady;
   const voice = $("voice");
   voice.innerHTML = `<option value="">Auto (Kokoro → Windows)</option>`;
   for (const item of status.voices || []) {
@@ -61,10 +69,49 @@ function renderPresets() {
       <div class="preset-meta"><strong>${preset.name}</strong><span>${preset.aspect} · ${preset.durationSec}s · ${preset.tagline}</span></div>`;
     card.onclick = () => {
       state.selected = preset.id;
+      state.captionStyleID = defaultStyleForPreset(preset.id);
       renderPresets();
+      renderStyles();
     };
     box.appendChild(card);
   }
+}
+
+function defaultStyleForPreset(presetID) {
+  const map = {
+    "viral-hook": "dynamic-minimal",
+    "faceless-facts": "hormozi-classic",
+    "youtube-short-news": "most-readable",
+    motivational: "archivo-hype",
+    "podcast-clip": "tiktok-native",
+    "travel-vlog": "quiet-aesthetic",
+  };
+  return map[presetID] || "dynamic-minimal";
+}
+
+function styleSwatch(style) {
+  const stops = (style.gradient && style.gradient.length ? style.gradient : [style.fill || "#fff", style.highlight || style.plateFill || "#111"]).join(",");
+  return `linear-gradient(135deg, ${stops})`;
+}
+
+function renderStyles() {
+  const box = $("style-grid");
+  if (!box) return;
+  box.innerHTML = "";
+  for (const style of state.styles) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "style-chip" + (style.id === state.captionStyleID ? " on" : "");
+    btn.innerHTML = `<div class="swatch" style="background:${styleSwatch(style)}"></div><span>${style.name}</span>`;
+    btn.onclick = () => {
+      state.captionStyleID = style.id;
+      $("style-name").textContent = style.name;
+      renderStyles();
+    };
+    box.appendChild(btn);
+  }
+  const current = state.styles.find((s) => s.id === state.captionStyleID);
+  if (current) $("style-name").textContent = current.name;
 }
 
 function fillDesk(project) {
@@ -127,8 +174,11 @@ function draftPayload() {
     seriesName: $("series").value,
     useLocalAI: $("use-local").checked,
     usePexels: $("use-pexels").checked,
+    usePixabay: $("use-pixabay").checked,
     useUnsplash: $("use-unsplash").checked,
     voiceIdentifier: $("voice").value || null,
+    captionStyleID: state.captionStyleID,
+    allowCards: $("allow-cards").checked,
   };
 }
 
@@ -138,6 +188,8 @@ function deskPayload() {
     body: [...$("desk-body").querySelectorAll("input")].map((el) => el.value),
     cta: $("desk-cta").value,
     captions: [...$("desk-captions").querySelectorAll("input")].map((el) => el.value),
+    captionStyleID: state.captionStyleID,
+    allowCards: $("allow-cards").checked,
   };
 }
 
@@ -174,9 +226,13 @@ async function boot() {
   applySnapshot(data);
   const settings = data.settings || {};
   $("use-pexels").checked = settings.usePexels !== false;
+  $("use-pixabay").checked = settings.usePixabay !== false;
   $("use-unsplash").checked = !!settings.useUnsplash;
   $("use-local").checked = settings.useLocalAI !== false;
+  $("allow-cards").checked = !!settings.allowCards;
+  state.captionStyleID = settings.captionStyleID || defaultStyleForPreset(state.selected);
   $("pexels-key").value = settings.pexelsKey || "";
+  $("pixabay-key").value = settings.pixabayKey || "";
   $("channel-name").value = settings.channel?.name || "";
   $("primary").value = settings.channel?.primaryHex || "#FF4D6D";
   $("accent").value = settings.channel?.accentHex || "#E8C39A";
@@ -201,7 +257,11 @@ $("save-settings").onclick = async () => {
     method: "POST",
     body: JSON.stringify({
       pexelsKey: $("pexels-key").value,
+      pixabayKey: $("pixabay-key").value,
       usePexels: $("use-pexels").checked,
+      usePixabay: $("use-pixabay").checked,
+      captionStyleID: state.captionStyleID,
+      allowCards: $("allow-cards").checked,
       useUnsplash: $("use-unsplash").checked,
       useLocalAI: $("use-local").checked,
       burnCaptions: $("burn").checked,

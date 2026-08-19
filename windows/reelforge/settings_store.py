@@ -8,9 +8,13 @@ from reelforge.paths import settings_path
 
 DEFAULTS: dict[str, Any] = {
     "pexelsKey": "",
+    "pixabayKey": "",
     "unsplashKey": "",
     "usePexels": True,
+    "usePixabay": True,
     "useUnsplash": False,
+    "allowCards": False,
+    "captionStyleID": "dynamic-minimal",
     "useLocalAI": True,
     "burnCaptions": True,
     "exportSRT": True,

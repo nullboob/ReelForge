@@ -33,6 +33,9 @@ public struct Project: Codable, Identifiable, Equatable, Sendable {
     public var licenseLedger: [LicenseEntry]
     public var exportPath: String?
     public var warnings: [String]
+    public var captionStyleID: String?
+    public var allowCards: Bool?
+    public var cardsOnly: Bool?
 
     public init(
         id: UUID = UUID(),
@@ -66,7 +69,10 @@ public struct Project: Codable, Identifiable, Equatable, Sendable {
         scriptAccepted: Bool = false,
         licenseLedger: [LicenseEntry] = [],
         exportPath: String? = nil,
-        warnings: [String] = []
+        warnings: [String] = [],
+        captionStyleID: String? = nil,
+        allowCards: Bool? = nil,
+        cardsOnly: Bool? = nil
     ) {
         self.id = id
         self.name = name
@@ -100,5 +106,8 @@ public struct Project: Codable, Identifiable, Equatable, Sendable {
         self.licenseLedger = licenseLedger
         self.exportPath = exportPath
         self.warnings = warnings
+        self.captionStyleID = captionStyleID
+        self.allowCards = allowCards
+        self.cardsOnly = cardsOnly
     }
 }

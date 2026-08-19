@@ -47,8 +47,8 @@ final class PublishPackTests: XCTestCase {
 
     func testCaptionSafeAreaClearsShortsChrome() {
         let safe = CaptionSafeArea.rect(width: 1080, height: 1920)
-        XCTAssertGreaterThanOrEqual(safe.y / 1920, 0.14)
-        XCTAssertGreaterThanOrEqual((1920 - (safe.y + safe.height)) / 1920, 0.14)
+        XCTAssertGreaterThanOrEqual(safe.y / 1920, 0.17)
+        XCTAssertGreaterThanOrEqual((1920 - (safe.y + safe.height)) / 1920, 0.11)
         XCTAssertLessThanOrEqual((safe.x + safe.width) / 1080, 0.83)
         XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 12), 6)
         XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 2), 3)
@@ -67,9 +67,9 @@ final class PublishPackTests: XCTestCase {
 
     func testStockQuerySkipsGenericFirstPage() {
         let rewritten = StockQueryHygiene.specificQuery("office handshake")
-        XCTAssertTrue(rewritten.contains("documentary"))
+        XCTAssertTrue(rewritten.contains("handheld"))
         XCTAssertNotEqual(rewritten, "office handshake")
-        XCTAssertEqual(StockQueryHygiene.specificQuery("rainy alley neon"), "rainy alley neon")
+        XCTAssertTrue(StockQueryHygiene.specificQuery("rainy alley neon").contains("rainy"))
     }
 
     func testHookRulesRejectGreetingOpens() {

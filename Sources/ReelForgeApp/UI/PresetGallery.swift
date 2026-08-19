@@ -25,7 +25,7 @@ struct PresetGallery: View {
                 LazyVStack(spacing: 10) {
                     ForEach(state.filteredPresets) { preset in
                         PresetCard(preset: preset, selected: state.selectedPreset?.id == preset.id)
-                            .onTapGesture { state.selectedPreset = preset }
+                            .onTapGesture { state.selectPreset(preset) }
                     }
                 }
                 .padding(.bottom, 20)

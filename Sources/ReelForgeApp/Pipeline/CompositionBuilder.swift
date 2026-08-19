@@ -234,12 +234,15 @@ enum ExportError: LocalizedError {
     case compositionFailed
     case exportFailed(String)
     case cancelled
+    case cardsOnly
 
     var errorDescription: String? {
         switch self {
         case .compositionFailed: return "Could not build the timeline composition."
         case .exportFailed(let message): return message
         case .cancelled: return "Export was cancelled."
+        case .cardsOnly:
+            return "This export would be cards, not a real video. Add a Pexels or Pixabay key, drop local footage, or check “cards ok” if you really want a type-card export."
         }
     }
 }

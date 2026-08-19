@@ -13,11 +13,15 @@ struct GenerateRequest: Sendable {
     var footageURLs: [URL]
     var useUnsplash: Bool
     var usePexels: Bool
+    var usePixabay: Bool
     var useLocalAI: Bool
     var burnCaptions: Bool
     var exportSRT: Bool
     var unsplashKey: String?
     var pexelsKey: String?
+    var pixabayKey: String?
+    var captionStyleID: String
+    var allowCards: Bool
     var channelType: ChannelType
     var target: VideoTarget
     var seriesName: String?
@@ -53,6 +57,8 @@ final class Director: @unchecked Sendable {
         project.scriptAccepted = false
         project.warnings = []
         project.voiceIdentifier = request.voiceIdentifier
+        project.captionStyleID = request.captionStyleID
+        project.allowCards = request.allowCards
         _ = try ProjectStore.prepare(project)
         var completed: [PipelineStep] = []
 
@@ -110,7 +116,8 @@ final class Director: @unchecked Sendable {
             storyboard: storyboard,
             preset: request.preset,
             voiceURL: nil,
-            allowLocalWhisper: false
+            allowLocalWhisper: false,
+            captionStyleID: request.captionStyleID
         )
         project.captions = captionResult.cues
         completed.append(.review)
@@ -206,7 +213,8 @@ final class Director: @unchecked Sendable {
                 storyboard: storyboard,
                 preset: request.preset,
                 voiceURL: voiceURL,
-                allowLocalWhisper: request.useLocalAI
+                allowLocalWhisper: request.useLocalAI,
+                captionStyleID: request.captionStyleID
             )
             project.captions = captionResult.cues
             if let warning = captionResult.warning { project.warnings.append(warning) }
@@ -224,8 +232,10 @@ final class Director: @unchecked Sendable {
             localFiles: request.footageURLs,
             unsplashKey: request.unsplashKey,
             pexelsKey: request.pexelsKey,
+            pixabayKey: request.pixabayKey,
             useUnsplash: request.useUnsplash,
             usePexels: request.usePexels,
+            usePixabay: request.usePixabay,
             useLocalAI: request.useLocalAI,
             channelName: request.channel.name
         ) { detail in
@@ -233,6 +243,10 @@ final class Director: @unchecked Sendable {
         }
         project.attributions = footage.attributions
         project.warnings.append(contentsOf: footage.warnings)
+        project.cardsOnly = footage.cardsOnly
+        if footage.cardsOnly && !request.allowCards {
+            throw ExportError.cardsOnly
+        }
         project.assets.removeAll { $0.kind == .image || $0.kind == .video || $0.kind == .generatedCard }
         project.assets.append(contentsOf: footage.assignments.values.map(\.asset))
         completed.append(.footage)
@@ -321,6 +335,8 @@ final class Director: @unchecked Sendable {
             let beat = storyboard.beats.first { $0.id == clip.beatID }
             let beatCaptions = request.burnCaptions ? project.captions : []
             let clipLogo = clip.start < 1.5 ? nil : logo
+            let look = CaptionCatalog.look(id: request.captionStyleID)
+            let captionStyle = look.asCaptionStyle()
             if assignment?.asset.kind == .video, let file = assignment?.fileURL {
                 try await ClipWriter.writeVideo(
                     source: file,
@@ -328,8 +344,11 @@ final class Director: @unchecked Sendable {
                     size: canvas,
                     grade: request.preset.colorGrade,
                     grain: request.preset.footage.overlayGrain,
+                    zoomPulse: request.preset.footage.zoomPulse,
                     captions: beatCaptions,
-                    captionStyle: request.preset.captionStyle,
+                    captionStyle: captionStyle,
+                    captionLook: look,
+                    primaryHex: request.channel.primaryHex,
                     title: clip.titleOverlay,
                     titleStyle: request.preset.titleCard,
                     stepNumber: clip.stepNumber,
@@ -364,7 +383,9 @@ final class Director: @unchecked Sendable {
                     grade: request.preset.colorGrade,
                     grain: request.preset.footage.overlayGrain,
                     captions: beatCaptions,
-                    captionStyle: request.preset.captionStyle,
+                    captionStyle: captionStyle,
+                    captionLook: look,
+                    primaryHex: request.channel.primaryHex,
                     title: clip.titleOverlay,
                     titleStyle: request.preset.titleCard,
                     stepNumber: clip.stepNumber,

@@ -21,6 +21,7 @@ from reelforge import settings_store
 from reelforge import speech
 from reelforge import storyboard as boardlib
 from reelforge.hooks import is_forbidden_open
+from reelforge import caption_styles
 from reelforge.paths import videos_dir, work_dir
 class Director:
     def __init__(self) -> None:
@@ -52,7 +53,10 @@ class Director:
             "ollama": speech.probe_ollama(),
             "ffmpeg": bool(__import__("shutil").which("ffmpeg")),
             "pexels": bool(settings.get("pexelsKey")),
-            "ttsEngine": "Kokoro" if speech.probe_kokoro() else "SAPI",
+            "ttsEngine": "Kokoro" if speech.probe_kokoro() else "edge-tts",
+            "pixabay": bool(settings.get("pixabayKey")),
+            "stockReady": bool(settings.get("pexelsKey") or settings.get("pixabayKey")),
+            "captionStyles": caption_styles.all_styles(),
             "voices": [{"id": vid, "name": name} for vid, name in speech.KOKORO_VOICES],
         }
 
@@ -80,11 +84,15 @@ class Director:
             raise ValueError(blocked)
         preset = presetlib.get_preset(payload.get("presetID") or "viral-hook")
         duration = int(payload.get("duration") or preset.get("durationSec") or 15)
+        style_id = payload.get("captionStyleID") or settings_store.load().get("captionStyleID") or caption_styles.default_for_preset(preset["id"])
         settings = settings_store.save({
             "usePexels": payload.get("usePexels", True),
+            "usePixabay": payload.get("usePixabay", True),
             "useUnsplash": bool(payload.get("useUnsplash")),
             "useLocalAI": payload.get("useLocalAI", True),
             "voiceIdentifier": payload.get("voiceIdentifier"),
+            "captionStyleID": style_id,
+            "allowCards": bool(payload.get("allowCards")),
         })
         channel = settings.get("channel") or {}
         self._emit("Writing hook, body, and CTA", 0.08)
@@ -117,6 +125,9 @@ class Director:
             "target": payload.get("target") or "short",
             "seriesName": payload.get("seriesName") or None,
             "voiceIdentifier": payload.get("voiceIdentifier") or settings.get("voiceIdentifier"),
+            "captionStyleID": style_id,
+            "allowCards": bool(payload.get("allowCards") or settings.get("allowCards")),
+            "cardsOnly": False,
         })
         with self.lock:
             self.project = project
@@ -156,12 +167,16 @@ class Director:
                 cues[index]["text"] = text
         elif not cues:
             cues = captionlib.cues_for_preset(script, board, preset)
+        style_id = payload.get("captionStyleID") or settings.get("captionStyleID") or caption_styles.default_for_preset(preset["id"])
+        settings_store.save({"captionStyleID": style_id, "allowCards": bool(payload.get("allowCards") or settings.get("allowCards"))})
+        self.project["captionStyleID"] = style_id
+        self.project["allowCards"] = bool(payload.get("allowCards") or settings.get("allowCards"))
         self.project["script"] = script
         self.project["storyboard"] = board
         self.project["captions"] = cues
         self.project["scriptAccepted"] = True
         try:
-            return self._compose(script, board, cues, preset, settings, pending.get("payload") or {})
+            return self._compose(script, board, cues, preset, settings, {**(pending.get("payload") or {}), **payload})
         except Exception as exc:
             self.progress = {"detail": str(exc), "fraction": 0.4, "busy": False, "failed": True}
             raise
@@ -181,21 +196,24 @@ class Director:
         self._emit("Kokoro, then Windows voice", 0.35)
         spoken = " ".join(scriptlib.spoken_lines(script)).replace(", ", ", … ")
         voice_path = work / "voice.wav"
-        duration, engine = speech.synthesize(
+        duration, engine, tts_words = speech.synthesize(
             spoken,
             voice_path,
             payload.get("voiceIdentifier") or settings.get("voiceIdentifier") or channel.get("defaultVoice"),
             float(payload.get("voiceSpeed") or settings.get("voiceSpeed") or 1.0),
         )
         self.project["ttsEngine"] = engine
+        if tts_words:
+            cues = captionlib.apply_tts_words(cues, tts_words)
+            self.project["captions"] = cues
         if abs(duration - board["duration"]) > 0.8:
             board = boardlib.rescale(board, duration)
             if board["beats"][0]["role"] != "hook":
                 raise boardlib.StoryboardError()
             self.project["storyboard"] = board
 
-        self._emit("Pexels video first, then cards", 0.48)
-        assignments, ledger, warnings = footage.gather(
+        self._emit("Pexels / Pixabay B-roll first", 0.48)
+        assignments, ledger, warnings, cards_only = footage.gather(
             board["beats"],
             preset,
             self.project.get("aspect") or preset.get("aspect") or "9:16",
@@ -204,9 +222,18 @@ class Director:
             bool(settings.get("usePexels", True)),
             channel.get("name") or "",
             payload.get("localFiles") or [],
+            pixabay_key=settings.get("pixabayKey") or None,
+            use_pixabay=bool(settings.get("usePixabay", True)),
             on_progress=lambda detail: self._emit(detail, 0.5),
         )
         self.project["warnings"] = list(self.project.get("warnings") or []) + warnings
+        self.project["cardsOnly"] = cards_only
+        allow_cards = bool(payload.get("allowCards") or settings.get("allowCards"))
+        if cards_only and not allow_cards:
+            raise ValueError(
+                "This export would be cards, not a real video. Add a Pexels or Pixabay key, "
+                "drop local footage, or check “cards ok” if you really want a type-card export."
+            )
 
         self._emit("Original-safe bed, ducked 8–12 dB under VO", 0.62)
         music_path = work / "music.wav"
@@ -246,6 +273,7 @@ class Director:
             bool(settings.get("burnCaptions", True)),
             bool(settings.get("exportSRT", True)),
             on_progress=lambda detail: self._emit(detail, 0.8),
+            caption_style=caption_styles.style_by_id(self.project.get("captionStyleID")),
         )
         credits = [entry["credit"] for entry in ledger]
         pack = publish.write_pack(

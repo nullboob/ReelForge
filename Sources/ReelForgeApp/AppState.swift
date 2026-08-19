@@ -13,6 +13,9 @@ final class AppState: ObservableObject {
     @Published var durationOverride: Int?
     @Published var useUnsplash = false
     @Published var usePexels = true
+    @Published var usePixabay = true
+    @Published var allowCards = false
+    @Published var captionStyleID: String = UserDefaults.standard.string(forKey: "reelforge.captionStyleID") ?? "dynamic-minimal"
     @Published var useLocalAI = true
     @Published var burnCaptions = true
     @Published var exportSRT = true
@@ -37,6 +40,8 @@ final class AppState: ObservableObject {
     @Published var localStatus = LocalAIStatus()
     @Published var unsplashConfigured = false
     @Published var pexelsConfigured = false
+    @Published var pixabayConfigured = false
+    @Published var captionLooks: [CaptionLook] = (try? CaptionCatalog.load()) ?? []
     @Published var search = ""
     @Published var player: AVPlayer?
     @Published var awaitingAccept = false
@@ -100,6 +105,10 @@ final class AppState: ObservableObject {
             if selectedPreset == nil {
                 selectedPreset = loaded.first { $0.id == "viral-hook" } ?? loaded.first
             }
+            if UserDefaults.standard.string(forKey: "reelforge.captionStyleID") == nil,
+               let preset = selectedPreset {
+                captionStyleID = CaptionCatalog.defaultID(forPreset: preset.id)
+            }
         } catch {
             lastError = error.localizedDescription
         }
@@ -108,6 +117,7 @@ final class AppState: ObservableObject {
     func refreshStatus() {
         unsplashConfigured = KeychainStore.unsplashAccessKey != nil
         pexelsConfigured = KeychainStore.pexelsAPIKey != nil
+        pixabayConfigured = KeychainStore.pixabayAPIKey != nil
         Task {
             localStatus = await LocalAIClient.shared.probe()
         }
@@ -153,6 +163,8 @@ final class AppState: ObservableObject {
         next.durationOverride = durationOverride
         next.useUnsplash = useUnsplash
         next.usePexels = usePexels
+        next.captionStyleID = captionStyleID
+        next.allowCards = allowCards
         next.useLocalAI = useLocalAI
         next.burnCaptions = burnCaptions
         next.exportSRT = exportSRT
@@ -179,11 +191,15 @@ final class AppState: ObservableObject {
             footageURLs: footageURLs,
             useUnsplash: useUnsplash,
             usePexels: usePexels,
+            usePixabay: usePixabay,
             useLocalAI: useLocalAI,
             burnCaptions: burnCaptions,
             exportSRT: exportSRT,
             unsplashKey: KeychainStore.unsplashAccessKey,
             pexelsKey: KeychainStore.pexelsAPIKey,
+            pixabayKey: KeychainStore.pixabayAPIKey,
+            captionStyleID: captionStyleID,
+            allowCards: allowCards,
             channelType: channelType,
             target: target,
             seriesName: seriesName.isEmpty ? nil : seriesName,
@@ -297,7 +313,7 @@ final class AppState: ObservableObject {
                 duration: board.duration,
                 maxWordsPerCard: CaptionSafeArea.maxWords(
                     forPresetID: preset.id,
-                    requested: preset.captionStyle.maxWordsPerCard
+                    requested: CaptionCatalog.look(id: captionStyleID).maxWords
                 ),
                 storyboard: board
             )
@@ -375,6 +391,16 @@ final class AppState: ObservableObject {
 
     func persistChannel() {
         ChannelStore.save(channelKit)
+    }
+
+    func selectPreset(_ preset: Preset) {
+        selectedPreset = preset
+        captionStyleID = CaptionCatalog.defaultID(forPreset: preset.id)
+        persistCaptionStyle()
+    }
+
+    func persistCaptionStyle() {
+        UserDefaults.standard.set(captionStyleID, forKey: "reelforge.captionStyleID")
     }
 
     func applyChannelDefaults() {

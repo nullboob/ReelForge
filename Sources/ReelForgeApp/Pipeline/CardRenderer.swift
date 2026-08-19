@@ -91,7 +91,14 @@ enum CardRenderer {
         return image
     }
 
-    static func renderCaption(cue: CaptionCue, style: CaptionStyle, canvas: CGSize, activeWord: Int?) -> NSImage {
+    static func renderCaption(
+        cue: CaptionCue,
+        style: CaptionStyle,
+        look: CaptionLook? = nil,
+        canvas: CGSize,
+        activeWord: Int?,
+        primaryHex: String = "#FF4D6D"
+    ) -> NSImage {
         let image = NSImage(size: canvas)
         image.lockFocus()
         guard let ctx = NSGraphicsContext.current?.cgContext else {
@@ -99,19 +106,29 @@ enum CardRenderer {
             return image
         }
         ctx.clear(CGRect(origin: .zero, size: canvas))
-        let font = AppFont.make(name: style.font, size: CGFloat(style.size), weight: style.weight)
-        let words = cue.text.split(separator: " ").map(String.init)
+        let font = AppFont.caption(look: look, fallback: style.font, size: CGFloat(look?.size ?? style.size), weight: style.weight)
+        var words = cue.text.split(separator: " ").map(String.init)
+        if look?.allCaps == true {
+            words = words.map { $0.uppercased() }
+        }
         let highlight = activeWord ?? cue.highlightWordIndex
+        let rainbow = ["#FF2D55", "#FF7A00", "#FFE14D", "#34C759", "#0072FF", "#7B5CFF"]
         let attr = NSMutableAttributedString()
         for (i, word) in words.enumerated() {
-            let color = (highlight == i)
-                ? HexColor.nsColor(style.highlight)
-                : HexColor.nsColor(style.fill)
-            var attributes: [NSAttributedString.Key: Any] = [
+            let fill: NSColor
+            if look?.id == "rainbow-word" {
+                fill = HexColor.nsColor(rainbow[i % rainbow.count])
+            } else if highlight == i {
+                fill = HexColor.nsColor(look?.highlight ?? style.highlight)
+            } else {
+                fill = HexColor.nsColor(look?.fill ?? style.fill)
+            }
+            let strokeWidth = -CGFloat(max(2, look?.outline ?? 4)) * 0.45
+            let attributes: [NSAttributedString.Key: Any] = [
                 .font: font,
-                .foregroundColor: color,
-                .strokeColor: HexColor.nsColor(style.stroke),
-                .strokeWidth: -3.2
+                .foregroundColor: fill,
+                .strokeColor: HexColor.nsColor(look?.stroke ?? style.stroke),
+                .strokeWidth: strokeWidth
             ]
             attr.append(NSAttributedString(string: word, attributes: attributes))
             if i < words.count - 1 {
@@ -125,12 +142,31 @@ enum CardRenderer {
         let boxHeight = textSize.height + 20
         let boxX = CGFloat(safe.x) + (CGFloat(safe.width) - boxWidth) / 2
         let boxY: CGFloat
-        if style.position == .center {
+        let centered = (look?.position ?? style.position.rawValue) != "bottom"
+        if centered {
             boxY = CGFloat(safe.y) + (CGFloat(safe.height) - boxHeight) / 2
         } else {
             boxY = CGFloat(safe.y) + 8
         }
         let box = CGRect(x: boxX, y: boxY, width: boxWidth, height: boxHeight)
+        if let look, look.plate != "none" {
+            var plate = look.plateFill ?? "#111111"
+            if plate == "primaryHex" { plate = primaryHex }
+            let color = HexColor.nsColor(plate).withAlphaComponent(look.plate == "soft" ? 0.66 : 0.9)
+            color.setFill()
+            let path = NSBezierPath(roundedRect: box, xRadius: look.plate == "pill" ? 22 : 8, yRadius: look.plate == "pill" ? 22 : 8)
+            path.fill()
+        }
+        if let look, !look.gradient.isEmpty {
+            let colors = look.gradient.map { HexColor.cgColor($0) }
+            if colors.count >= 2, let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors as CFArray, locations: nil) {
+                ctx.saveGState()
+                ctx.addPath(CGPath(roundedRect: box, cornerWidth: 10, cornerHeight: 10, transform: nil))
+                ctx.clip()
+                ctx.drawLinearGradient(gradient, start: CGPoint(x: box.minX, y: box.midY), end: CGPoint(x: box.maxX, y: box.midY), options: [])
+                ctx.restoreGState()
+            }
+        }
         let textRect = CGRect(
             x: box.minX + 16,
             y: box.minY + 8,

@@ -187,6 +187,42 @@ pre {
 }
 .seg button.on { color: var(--ink); outline: 1px solid var(--gold); }
 
+.style-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+  padding-right: 2px;
+}
+.style-chip {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--elevated);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  color: var(--ink);
+}
+.style-chip.on { outline: 1px solid var(--gold); }
+.style-chip .swatch { height: 36px; }
+.style-chip span {
+  display: block;
+  font-size: 10px;
+  padding: 5px 6px 6px;
+  line-height: 1.25;
+}
+.cards-warn {
+  margin: 10px 0 6px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 77, 109, 0.16);
+  border: 1px solid rgba(255, 77, 109, 0.45);
+  color: #ffd0d8;
+  font-size: 12px;
+}
+
 .modal {
   position: fixed;
   inset: 0;

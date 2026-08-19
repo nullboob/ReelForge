@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject private var state: AppState
     @State private var unsplash = ""
     @State private var pexels = ""
+    @State private var pixabay = ""
     @State private var youtube = ""
     @State private var saved = false
 
@@ -40,6 +41,7 @@ struct SettingsView: View {
         .onAppear {
             unsplash = KeychainStore.string(account: KeychainStore.unsplashAccount) ?? ""
             pexels = KeychainStore.string(account: KeychainStore.pexelsAccount) ?? ""
+            pixabay = KeychainStore.string(account: KeychainStore.pixabayAccount) ?? ""
             youtube = KeychainStore.string(account: KeychainStore.youtubeAccount) ?? ""
             state.refreshStatus()
         }
@@ -50,8 +52,9 @@ struct SettingsView: View {
             sectionTitle("Keys")
             labeledField("Unsplash access key", text: $unsplash)
             labeledField("Pexels API key (REELFORGE_PEXELS_API_KEY)", text: $pexels)
+            labeledField("Pixabay API key (optional second stock source)", text: $pixabay)
             labeledField("YouTube Data API key (upload later)", text: $youtube)
-            Text("Pexels Videos is the automated B-roll path. Unsplash stays off by default — their API terms forbid automated use and require hotlinking. YouTube upload is coming soon. No fake upload.")
+            Text("Pexels Videos is first. Pixabay is the second free source. Cards are last-resort and will not export as a finished Short unless you opt in. Unsplash stays off by default.")
                 .font(.system(size: 11))
                 .foregroundStyle(RFTheme.muted)
             HStack {
@@ -178,6 +181,7 @@ struct SettingsView: View {
     private func persistKeys() {
         KeychainStore.set(unsplash, account: KeychainStore.unsplashAccount)
         KeychainStore.set(pexels, account: KeychainStore.pexelsAccount)
+        KeychainStore.set(pixabay, account: KeychainStore.pixabayAccount)
         KeychainStore.set(youtube, account: KeychainStore.youtubeAccount)
         state.refreshStatus()
     }

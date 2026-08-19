@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -17,14 +18,20 @@ GENERIC = (
     "handshake", "business meeting", "generic city", "stock office",
 )
 
+STOP = {
+    "this", "that", "with", "from", "your", "have", "will", "stop", "just",
+    "they", "them", "then", "than", "what", "when", "where", "about", "after",
+    "before", "because", "could", "should", "would", "there", "their", "these",
+    "those", "into", "over", "under", "more", "most", "some", "very", "also",
+}
+
 
 def specific_query(raw: str) -> str:
     lower = raw.lower()
+    nouns = [word for word in re.findall(r"[A-Za-z]{4,}", raw) if word.lower() not in STOP]
+    if nouns:
+        return " ".join(nouns[:3]) + " handheld closeup"
     if any(needle in lower for needle in GENERIC):
-        words = [word for word in "".join(ch if ch.isalpha() else " " for ch in raw).split() if len(word) > 4]
-        for word in words:
-            if not any(word.lower() in needle for needle in GENERIC):
-                return f"{word} handheld documentary"
         return "handheld documentary texture"
     return raw
 
@@ -58,15 +65,24 @@ def gather(
     channel_name: str,
     local_files: list[str] | None = None,
     on_progress=None,
-) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]], list[str]]:
+    pixabay_key: str | None = None,
+    use_pixabay: bool = True,
+) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]], list[str], bool]:
     assignments: dict[str, dict[str, Any]] = {}
     ledger: list[dict[str, Any]] = []
     warnings: list[str] = []
     size = pixel_size(aspect)
     locals_ = [Path(p) for p in (local_files or []) if Path(p).exists()]
+    has_stock_key = bool((use_pexels and pexels_key) or (use_pixabay and pixabay_key))
     if use_pexels and not pexels_key:
-        warnings.append("No Pexels key — stock video skipped. Add one in Settings.")
+        warnings.append("No Pexels key — stock video skipped unless Pixabay is set.")
+    if not has_stock_key and not locals_:
+        warnings.append(
+            "CARDS ONLY: no Pexels/Pixabay key and no local files. "
+            "This will look like a slide deck, not a finished Short."
+        )
 
+    card_count = 0
     for index, beat in enumerate(beats):
         if on_progress:
             on_progress(f"Fetching B-roll for beat {index + 1}/{len(beats)}")
@@ -80,8 +96,12 @@ def gather(
             ledger.append(_entry(f"local-{index}", "visual", "user-local", "User provided", "Local file", beat["id"]))
             continue
 
+        query = specific_query(beat.get("unsplashQuery") or beat.get("text") or "")
+        excluding = load_blacklist(channel_name)
+        portrait = aspect != "16:9"
+
         if use_pexels and pexels_key:
-            clip = search_pexels(beat.get("unsplashQuery") or beat["text"], pexels_key, aspect != "16:9", index, load_blacklist(channel_name))
+            clip = search_pexels(query, pexels_key, portrait, index, excluding)
             if clip:
                 dest_video = work / f"pexels-{index}.mp4"
                 if download(clip["url"], dest_video):
@@ -93,21 +113,37 @@ def gather(
                     ))
                     continue
 
+        if use_pixabay and pixabay_key:
+            clip = search_pixabay(query, pixabay_key, portrait, index, excluding)
+            if clip:
+                dest_video = work / f"pixabay-{index}.mp4"
+                if download(clip["url"], dest_video):
+                    remember_clip(clip["id"], channel_name)
+                    assignments[beat["id"]] = {"kind": "video", "path": str(dest_video), "source": "pixabay", "clipID": str(clip["id"])}
+                    ledger.append(_entry(
+                        f"pixabay-{clip['id']}", "visual", "pixabay", "Pixabay License",
+                        f"{clip['user']} / Pixabay", beat["id"], str(clip["id"])
+                    ))
+                    continue
+
         render_card(beat["text"], dest_card, size, preset, channel_name, watermark=beat["start"] >= 1.5)
         assignments[beat["id"]] = {"kind": "card", "path": str(dest_card), "source": "reelforge-card"}
         ledger.append(_entry(f"card-{index}", "visual", "reelforge-card", "Generated in-app", "Styled card", beat["id"]))
+        card_count += 1
 
-    if len(assignments) < len(beats):
-        warnings.append("Some beats used fallback cards so export could finish.")
-    return assignments, ledger, warnings
+    cards_only = card_count == len(beats) and len(beats) > 0 and not locals_
+    if cards_only:
+        warnings.append("Export used styled cards for every beat — not a finished Short unless you opted into cards.")
+    elif card_count:
+        warnings.append(f"{card_count} beat(s) fell back to cards after stock search missed.")
+    return assignments, ledger, warnings, cards_only
 
 
 def search_pexels(query: str, key: str, portrait: bool, index: int, excluding: set[int]) -> dict[str, Any] | None:
-    cleaned = specific_query(query)
     params = urlencode({
-        "query": cleaned,
-        "per_page": 12,
-        "page": 2 + (index % 3),
+        "query": query,
+        "per_page": 15,
+        "page": 1 + (index % 4),
         "orientation": "portrait" if portrait else "landscape",
     })
     url = f"https://api.pexels.com/videos/search?{params}"
@@ -130,6 +166,41 @@ def search_pexels(query: str, key: str, portrait: bool, index: int, excluding: s
                 "id": int(pick.get("id") or 0),
                 "url": preferred["link"],
                 "photographer": user.get("name") or "Pexels contributor",
+            }
+    except Exception:
+        return None
+
+
+def search_pixabay(query: str, key: str, portrait: bool, index: int, excluding: set[int]) -> dict[str, Any] | None:
+    params = urlencode({
+        "key": key,
+        "q": query,
+        "per_page": 12,
+        "page": 1 + (index % 3),
+        "video_type": "film",
+        "safesearch": "true",
+        "orientation": "vertical" if portrait else "horizontal",
+    })
+    url = f"https://pixabay.com/api/videos/?{params}"
+    try:
+        with httpx.Client(timeout=12) as client:
+            response = client.get(url)
+            if response.status_code != 200:
+                return None
+            hits = response.json().get("hits") or []
+            unused = [hit for hit in hits if int(hit.get("id") or 0) not in excluding]
+            pick = (unused or hits or [None])[0]
+            if not pick:
+                return None
+            videos = pick.get("videos") or {}
+            preferred = videos.get("large") or videos.get("medium") or videos.get("small") or {}
+            link = preferred.get("url")
+            if not link:
+                return None
+            return {
+                "id": int(pick.get("id") or 0),
+                "url": link,
+                "user": pick.get("user") or "Pixabay contributor",
             }
     except Exception:
         return None

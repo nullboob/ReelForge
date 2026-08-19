@@ -13,6 +13,8 @@ enum ClipWriter {
         grain: Bool,
         captions: [CaptionCue],
         captionStyle: CaptionStyle,
+        captionLook: CaptionLook? = nil,
+        primaryHex: String = "#FF4D6D",
         title: String?,
         titleStyle: TitleCardStyle,
         stepNumber: Int?,
@@ -30,6 +32,8 @@ enum ClipWriter {
                 time: time + timelineOffset,
                 captions: captions,
                 captionStyle: captionStyle,
+                captionLook: captionLook,
+                primaryHex: primaryHex,
                 title: title,
                 titleStyle: titleStyle,
                 stepNumber: stepNumber,
@@ -44,8 +48,11 @@ enum ClipWriter {
         size: CGSize,
         grade: ColorGrade,
         grain: Bool,
+        zoomPulse: Bool = false,
         captions: [CaptionCue],
         captionStyle: CaptionStyle,
+        captionLook: CaptionLook? = nil,
+        primaryHex: String = "#FF4D6D",
         title: String?,
         titleStyle: TitleCardStyle,
         stepNumber: Int?,
@@ -69,7 +76,8 @@ enum ClipWriter {
             let sourceTime = CMTime(seconds: min(sourceDuration - 0.01, time.truncatingRemainder(dividingBy: sourceDuration)), preferredTimescale: 600)
             let frame = try? generator.copyCGImage(at: sourceTime, actualTime: nil)
             if let frame {
-                drawAspectFill(frame, ctx: ctx, size: size)
+                let scale = zoomPulse ? 1.06 + 0.03 * sin((time / max(duration, 1)) * .pi * 2) : 1
+                drawAspectFill(frame, ctx: ctx, size: size, scale: scale)
             } else {
                 ctx.setFillColor(NSColor.black.cgColor)
                 ctx.fill(CGRect(origin: .zero, size: size))
@@ -82,6 +90,8 @@ enum ClipWriter {
                 time: time + timelineOffset,
                 captions: captions,
                 captionStyle: captionStyle,
+                captionLook: captionLook,
+                primaryHex: primaryHex,
                 title: title,
                 titleStyle: titleStyle,
                 stepNumber: stepNumber,
@@ -253,6 +263,8 @@ enum ClipWriter {
         time: Double,
         captions: [CaptionCue],
         captionStyle: CaptionStyle,
+        captionLook: CaptionLook?,
+        primaryHex: String,
         title: String?,
         titleStyle: TitleCardStyle,
         stepNumber: Int?,
@@ -295,7 +307,14 @@ enum ClipWriter {
         case .pop:
             active = cue.highlightWordIndex
         }
-        let image = CardRenderer.renderCaption(cue: cue, style: captionStyle, canvas: size, activeWord: active)
+        let image = CardRenderer.renderCaption(
+            cue: cue,
+            style: captionStyle,
+            look: captionLook,
+            canvas: size,
+            activeWord: active,
+            primaryHex: primaryHex
+        )
         if let cg = ImageIO.cgImage(from: image) {
             var alpha: CGFloat = 1
             if captionStyle.animation == .pop {

@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import Foundation
 
 enum HexColor {
@@ -30,6 +31,20 @@ enum AppFont {
         default: mapped = .semibold
         }
         return NSFont.systemFont(ofSize: size, weight: mapped)
+    }
+
+    static func caption(look: CaptionLook?, fallback: String, size: CGFloat, weight: String) -> NSFont {
+        if let look, let url = CaptionCatalog.fontURL(file: look.fontFile) {
+            CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+            if let name = CTFontCopyPostScriptName(CTFontCreateWithName(look.font as CFString, size, nil)) as String?,
+               let font = NSFont(name: name, size: size) {
+                return font
+            }
+            if let font = NSFont(name: look.font, size: size) {
+                return font
+            }
+        }
+        return make(name: fallback, size: size, weight: weight)
     }
 }
 

@@ -6,14 +6,16 @@ struct CaptionService {
         storyboard: Storyboard,
         preset: Preset,
         voiceURL: URL?,
-        allowLocalWhisper: Bool
+        allowLocalWhisper: Bool,
+        captionStyleID: String? = nil
     ) async -> (cues: [CaptionCue], warning: String?) {
+        let requested = CaptionCatalog.look(id: captionStyleID).maxWords
         if allowLocalWhisper, let voiceURL {
             if let whispered = await transcribeLocalWhisper(voiceURL) {
                 let aligned = CaptionSplitter.align(
                     text: whispered,
                     duration: storyboard.duration,
-                    maxWordsPerCard: CaptionSafeArea.maxWords(forPresetID: preset.id, requested: preset.captionStyle.maxWordsPerCard)
+                    maxWordsPerCard: CaptionSafeArea.maxWords(forPresetID: preset.id, requested: requested)
                 )
                 if !aligned.isEmpty {
                     return (aligned, nil)
@@ -23,7 +25,7 @@ struct CaptionService {
         let cues = CaptionSplitter.cues(
             from: script,
             duration: storyboard.duration,
-            maxWordsPerCard: CaptionSafeArea.maxWords(forPresetID: preset.id, requested: preset.captionStyle.maxWordsPerCard),
+            maxWordsPerCard: CaptionSafeArea.maxWords(forPresetID: preset.id, requested: requested),
             storyboard: storyboard
         )
         return (cues, nil)

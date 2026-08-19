@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
 import sys
 import wave
 from pathlib import Path
@@ -25,12 +27,12 @@ KOKORO_VOICES = [
 ]
 
 
-def synthesize(text: str, dest: Path, voice_identifier: str | None = None, speed: float = 1.0) -> tuple[float, str]:
+def synthesize(text: str, dest: Path, voice_identifier: str | None = None, speed: float = 1.0) -> tuple[float, str, list[dict]]:
     dest.parent.mkdir(parents=True, exist_ok=True)
     spoken = text.replace(", ", ", … ").strip()
     if not spoken:
         write_silence(dest, 4)
-        return 4.0, "silence"
+        return 4.0, "silence", []
 
     wants_kokoro = voice_identifier is None or str(voice_identifier).startswith("kokoro:")
     if wants_kokoro:
@@ -39,18 +41,18 @@ def synthesize(text: str, dest: Path, voice_identifier: str | None = None, speed
             voice = str(voice_identifier).split(":", 1)[1]
         duration = _kokoro(spoken, dest, voice, speed)
         if duration:
-            return duration, "Kokoro"
+            return duration, "Kokoro", []
+
+    timed = _edge_tts(spoken, dest)
+    if timed:
+        return timed[0], "edge-tts", timed[1]
 
     duration = _sapi(spoken, dest, speed)
     if duration:
-        return duration, "SAPI"
-
-    duration = _edge_tts(spoken, dest)
-    if duration:
-        return duration, "edge-tts"
+        return duration, "SAPI", []
 
     write_silence(dest, estimate_duration(spoken))
-    return estimate_duration(spoken), "silence"
+    return estimate_duration(spoken), "silence", []
 
 
 def probe_kokoro() -> bool:
@@ -128,7 +130,7 @@ def _sapi(text: str, dest: Path, speed: float) -> float | None:
     return None
 
 
-def _edge_tts(text: str, dest: Path) -> float | None:
+def _edge_tts(text: str, dest: Path) -> tuple[float, list[dict]] | None:
     if os.environ.get("REELFORGE_DISABLE_EDGE_TTS") == "1":
         return None
     try:
@@ -137,17 +139,53 @@ def _edge_tts(text: str, dest: Path) -> float | None:
     except Exception:
         return None
 
-    async def run() -> None:
+    async def run() -> list[dict]:
         communicate = edge_tts.Communicate(text, "en-US-JennyNeural")
-        await communicate.save(str(dest))
+        words: list[dict] = []
+        audio = bytearray()
+        async for chunk in communicate.stream():
+            kind = chunk.get("type")
+            if kind == "audio":
+                audio.extend(chunk.get("data") or b"")
+            elif kind == "WordBoundary":
+                words.append({
+                    "word": chunk.get("text") or "",
+                    "start": float(chunk.get("offset") or 0) / 10_000_000,
+                    "duration": float(chunk.get("duration") or 0) / 10_000_000,
+                })
+        if len(audio) > 200:
+            dest.write_bytes(bytes(audio))
+        return words
 
     try:
-        asyncio.run(run())
+        words = asyncio.run(run())
         if dest.exists() and dest.stat().st_size > 200:
-            return wav_duration(dest) or estimate_duration(text)
+            duration = wav_duration(dest)
+            if duration is None:
+                duration = _transcode_to_wav(dest) or estimate_duration(text)
+            return duration, words
     except Exception:
         return None
     return None
+
+
+def _transcode_to_wav(dest: Path) -> float | None:
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        return None
+    tmp = dest.with_suffix(".edge.mp3")
+    dest.replace(tmp)
+    result = subprocess.run(
+        [ffmpeg, "-hide_banner", "-y", "-i", str(tmp), "-ac", "1", "-ar", str(SAMPLE_RATE), str(dest)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or not dest.exists():
+        if tmp.exists() and not dest.exists():
+            tmp.replace(dest)
+        return None
+    tmp.unlink(missing_ok=True)
+    return wav_duration(dest)
 
 
 def wav_duration(path: Path) -> float | None:

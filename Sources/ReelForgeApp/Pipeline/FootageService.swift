@@ -15,20 +15,26 @@ struct FootageService {
         localFiles: [URL],
         unsplashKey: String?,
         pexelsKey: String?,
+        pixabayKey: String?,
         useUnsplash: Bool,
         usePexels: Bool,
+        usePixabay: Bool,
         useLocalAI: Bool,
         channelName: String? = nil,
         onProgress: @MainActor @escaping (String) -> Void
-    ) async -> (assignments: [String: FootageAssignment], attributions: [UnsplashAttribution], warnings: [String]) {
+    ) async -> (assignments: [String: FootageAssignment], attributions: [UnsplashAttribution], warnings: [String], cardsOnly: Bool) {
         var assignments: [String: FootageAssignment] = [:]
         var attributions: [UnsplashAttribution] = []
         var warnings: [String] = []
         let size = aspect.pixelSize
         let localMedia = localFiles.filter { isMedia($0) }
 
+        let hasStockKey = (usePexels && pexelsKey != nil) || (usePixabay && pixabayKey != nil)
         if usePexels, pexelsKey == nil {
-            warnings.append("No Pexels key — stock video skipped. Add one in Settings.")
+            warnings.append("No Pexels key — stock video skipped unless Pixabay is set.")
+        }
+        if !hasStockKey && localMedia.isEmpty {
+            warnings.append("CARDS ONLY: no Pexels/Pixabay key and no local files. This will look like a slide deck, not a finished Short.")
         }
         if useUnsplash, unsplashKey == nil {
             warnings.append("No Unsplash key — stills skipped unless cards or ComfyUI fill in.")
@@ -74,6 +80,35 @@ struct FootageService {
                     attributions.append(attr)
                     assignments[beat.id] = FootageAssignment(
                         asset: AssetRef(id: "pexels-\(clip.id)", kind: .video, relativePath: destVideo.lastPathComponent, beatID: beat.id, attribution: attr),
+                        fileURL: destVideo
+                    )
+                    continue
+                }
+            }
+
+            if usePixabay, let key = pixabayKey {
+                let destVideo = workDir.appendingPathComponent("pixabay-\(index).mp4")
+                await onProgress("Searching Pixabay video for beat \(index + 1)/\(beats.count)")
+                let banned = ClipBlacklist.load(channel: channelName ?? "")
+                if let clip = await PixabayClient.shared.search(
+                    query: beat.unsplashQuery.isEmpty ? beat.text : beat.unsplashQuery,
+                    accessKey: key,
+                    portrait: aspect != .landscape,
+                    page: 1 + (index % 3),
+                    excluding: banned
+                ), await PixabayClient.shared.download(clip, to: destVideo) {
+                    ClipBlacklist.remember(clip.id, channel: channelName ?? "")
+                    let attr = UnsplashAttribution(
+                        source: "pixabay",
+                        photographer: clip.user,
+                        photographerURL: clip.pageURL,
+                        photoURL: clip.pageURL,
+                        beatID: beat.id,
+                        clipID: String(clip.id)
+                    )
+                    attributions.append(attr)
+                    assignments[beat.id] = FootageAssignment(
+                        asset: AssetRef(id: "pixabay-\(clip.id)", kind: .video, relativePath: destVideo.lastPathComponent, beatID: beat.id, attribution: attr),
                         fileURL: destVideo
                     )
                     continue
@@ -141,10 +176,17 @@ struct FootageService {
             }
         }
 
+        let cardCount = assignments.values.filter { $0.asset.kind == .generatedCard }.count
+        let cardsOnly = !beats.isEmpty && cardCount == beats.count && localMedia.isEmpty
+        if cardsOnly {
+            warnings.append("Export used styled cards for every beat — not a finished Short unless you opted into cards.")
+        } else if cardCount > 0 {
+            warnings.append("\(cardCount) beat(s) fell back to cards after stock search missed.")
+        }
         if assignments.count < beats.count {
             warnings.append("Some beats used fallback cards so export could finish.")
         }
-        return (assignments, attributions, warnings)
+        return (assignments, attributions, warnings, cardsOnly)
     }
 
     private func isMedia(_ url: URL) -> Bool {

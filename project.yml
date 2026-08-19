@@ -28,6 +28,12 @@ targets:
       - path: Sources/ReelForgeCore/Resources/presets
         type: folder
         buildPhase: resources
+      - path: Sources/ReelForgeCore/Resources/caption-styles
+        type: folder
+        buildPhase: resources
+      - path: Sources/ReelForgeCore/Resources/fonts
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.reelforge.ReelForge

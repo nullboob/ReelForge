@@ -98,15 +98,25 @@
       <textarea id="topic" placeholder="3 reasons your morning walk beats the gym"></textarea>
 
       <div class="kicker">Voice</div>
-      <div class="gold" id="engine">Engine: SAPI</div>
+      <div class="gold" id="engine">Engine: edge-tts</div>
       <select id="voice"></select>
+
+      <div class="kicker">Caption style</div>
+      <div class="style-grid" id="style-grid"></div>
+      <p class="muted" id="style-name">Dynamic Minimal</p>
 
       <div class="kicker">Sources</div>
       <label class="toggle"><input type="checkbox" id="use-pexels" checked /> Pexels stock video</label>
+      <label class="toggle"><input type="checkbox" id="use-pixabay" checked /> Pixabay stock video</label>
       <label class="toggle"><input type="checkbox" id="use-unsplash" /> Unsplash stills (manual only, off by default)</label>
       <label class="toggle"><input type="checkbox" id="use-local" checked /> Use Ollama if available</label>
       <label class="toggle"><input type="checkbox" id="burn" checked /> Burn captions</label>
       <label class="toggle"><input type="checkbox" id="srt" checked /> Export sidecar SRT</label>
+      <div class="cards-warn" id="cards-warn" hidden>
+        <strong>Cards, not a real video.</strong>
+        No Pexels or Pixabay key. Accept will block unless you check cards ok.
+      </div>
+      <label class="toggle"><input type="checkbox" id="allow-cards" /> Cards ok (slide-deck export)</label>
 
       <p class="error" id="error" hidden></p>
       <button class="primary" id="btn-draft">Draft script</button>
@@ -122,7 +132,9 @@
       </div>
       <label>Pexels API key (REELFORGE_PEXELS_API_KEY)</label>
       <input id="pexels-key" type="password" placeholder="Paste key" />
-      <p class="muted">Pexels Videos is the automated B-roll path. Unsplash stays off by default.</p>
+      <label>Pixabay API key (optional second stock source)</label>
+      <input id="pixabay-key" type="password" placeholder="Paste key" />
+      <p class="muted">Pexels video is first. Pixabay is the second free source. Cards are last-resort and will not export as a finished Short unless you opt in.</p>
       <label>Channel name</label>
       <input id="channel-name" />
       <label>Primary color</label>

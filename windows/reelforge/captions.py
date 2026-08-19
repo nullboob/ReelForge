@@ -114,10 +114,30 @@ def stamp(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 
+def apply_tts_words(cues: list[dict[str, Any]], tts_words: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not tts_words:
+        return cues
+    cursor = 0
+    out = []
+    for cue in cues:
+        count = max(1, len(cue.get("words") or cue.get("text", "").split()))
+        slice_ = tts_words[cursor: cursor + count]
+        cursor += count
+        next_cue = dict(cue)
+        if slice_:
+            next_cue["start"] = float(slice_[0]["start"])
+            last = slice_[-1]
+            next_cue["duration"] = max(0.2, float(last["start"] + last["duration"]) - next_cue["start"])
+            next_cue["words"] = slice_
+            next_cue["text"] = " ".join(w.get("word") or "" for w in slice_)
+        out.append(next_cue)
+    return out
+
+
 def safe_area(width: float, height: float) -> tuple[float, float, float, float]:
     portrait = width < height
     left = width * 0.08
     right = width * (0.18 if portrait else 0.08)
-    bottom = height * 0.15
-    top = height * 0.15
+    bottom = height * 0.18
+    top = height * 0.12
     return left, bottom, max(1.0, width - left - right), max(1.0, height - bottom - top)

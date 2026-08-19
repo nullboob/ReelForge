@@ -23,6 +23,14 @@ def presets_dir() -> Path:
     return repo_root() / "Sources" / "ReelForgeCore" / "Resources" / "presets"
 
 
+def fonts_dir() -> Path:
+    return repo_root() / "Sources" / "ReelForgeCore" / "Resources" / "fonts"
+
+
+def caption_catalog_path() -> Path:
+    return repo_root() / "Sources" / "ReelForgeCore" / "Resources" / "caption-styles" / "catalog.json"
+
+
 def web_dir() -> Path:
     return package_dir() / "web"
 
