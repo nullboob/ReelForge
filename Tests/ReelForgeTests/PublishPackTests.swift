@@ -50,8 +50,8 @@ final class PublishPackTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(safe.y / 1920, 0.17)
         XCTAssertGreaterThanOrEqual((1920 - (safe.y + safe.height)) / 1920, 0.11)
         XCTAssertLessThanOrEqual((safe.x + safe.width) / 1080, 0.83)
-        XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 12), 6)
-        XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 2), 3)
+        XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 12), 3)
+        XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 2), 2)
     }
 
     func testMusicDuckStaysEightToTwelveDb() {

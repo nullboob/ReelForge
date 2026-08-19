@@ -14,7 +14,7 @@ DEFAULTS: dict[str, Any] = {
     "usePixabay": True,
     "useUnsplash": False,
     "allowCards": False,
-    "captionStyleID": "dynamic-minimal",
+    "captionStyleID": "tiktok-classic-outline",
     "useLocalAI": True,
     "burnCaptions": True,
     "exportSRT": True,
@@ -46,6 +46,8 @@ def load() -> dict[str, Any]:
         data.update(raw)
         data["channel"] = {**DEFAULTS["channel"], **channel}
     data["useUnsplash"] = False if data.get("useUnsplash") is None else bool(data.get("useUnsplash"))
+    from reelforge.caption_styles import resolve_id
+    data["captionStyleID"] = resolve_id(data.get("captionStyleID"))
     return data
 
 

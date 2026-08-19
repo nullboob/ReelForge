@@ -112,12 +112,12 @@ enum CardRenderer {
             words = words.map { $0.uppercased() }
         }
         let highlight = activeWord ?? cue.highlightWordIndex
-        let rainbow = ["#FF2D55", "#FF7A00", "#FFE14D", "#34C759", "#0072FF", "#7B5CFF"]
         let attr = NSMutableAttributedString()
+        let accentGradient = look?.role == "accent" && !(look?.gradient.isEmpty ?? true)
         for (i, word) in words.enumerated() {
             let fill: NSColor
-            if look?.id == "rainbow-word" {
-                fill = HexColor.nsColor(rainbow[i % rainbow.count])
+            if accentGradient && highlight != i {
+                fill = HexColor.nsColor("#FFFFFF")
             } else if highlight == i {
                 fill = HexColor.nsColor(look?.highlight ?? style.highlight)
             } else {
@@ -136,7 +136,7 @@ enum CardRenderer {
             }
         }
         let textSize = attr.size()
-        let safe = CaptionSafeArea.rect(width: Double(canvas.width), height: Double(canvas.height))
+        let safe = CaptionSafeArea.captionBand(width: Double(canvas.width), height: Double(canvas.height))
         let maxBox = min(safe.width, Double(textSize.width) + 48)
         let boxWidth = CGFloat(maxBox)
         let boxHeight = textSize.height + 20
@@ -157,14 +157,27 @@ enum CardRenderer {
             let path = NSBezierPath(roundedRect: box, xRadius: look.plate == "pill" ? 22 : 8, yRadius: look.plate == "pill" ? 22 : 8)
             path.fill()
         }
-        if let look, !look.gradient.isEmpty {
+        if let look, !look.gradient.isEmpty, look.role == "accent" {
+            // Multi-stop fills are CGGradient (not CAGradientLayer). 2-stop is allowed; 3+ stays CG.
             let colors = look.gradient.map { HexColor.cgColor($0) }
-            if colors.count >= 2, let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors as CFArray, locations: nil) {
-                ctx.saveGState()
-                ctx.addPath(CGPath(roundedRect: box, cornerWidth: 10, cornerHeight: 10, transform: nil))
-                ctx.clip()
-                ctx.drawLinearGradient(gradient, start: CGPoint(x: box.minX, y: box.midY), end: CGPoint(x: box.maxX, y: box.midY), options: [])
-                ctx.restoreGState()
+            if colors.count >= 2 {
+                let locations = (0..<colors.count).map { CGFloat($0) / CGFloat(max(1, colors.count - 1)) }
+                if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors as CFArray, locations: locations) {
+                    ctx.saveGState()
+                    let start: CGPoint
+                    let end: CGPoint
+                    if look.angle == 135 {
+                        start = CGPoint(x: box.minX, y: box.maxY)
+                        end = CGPoint(x: box.maxX, y: box.minY)
+                    } else {
+                        start = CGPoint(x: box.minX, y: box.midY)
+                        end = CGPoint(x: box.maxX, y: box.midY)
+                    }
+                    ctx.addPath(CGPath(roundedRect: box.insetBy(dx: 8, dy: 4), cornerWidth: 8, cornerHeight: 8, transform: nil))
+                    ctx.clip()
+                    ctx.drawLinearGradient(gradient, start: start, end: end, options: [])
+                    ctx.restoreGState()
+                }
             }
         }
         let textRect = CGRect(

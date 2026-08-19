@@ -4,7 +4,7 @@ const state = {
   snapshot: null,
   target: "short",
   styles: [],
-  captionStyleID: "dynamic-minimal",
+  captionStyleID: "tiktok-classic-outline",
   stockReady: false,
 };
 
@@ -81,14 +81,14 @@ function renderPresets() {
 
 function defaultStyleForPreset(presetID) {
   const map = {
-    "viral-hook": "dynamic-minimal",
-    "faceless-facts": "hormozi-classic",
-    "youtube-short-news": "most-readable",
-    motivational: "archivo-hype",
-    "podcast-clip": "tiktok-native",
-    "travel-vlog": "quiet-aesthetic",
+    "viral-hook": "tiktok-classic-outline",
+    "faceless-facts": "hormozi-yellow-pop",
+    "youtube-short-news": "commentary-telegraph",
+    motivational: "bounce-fitness",
+    "podcast-clip": "podcast-split-karaoke",
+    "travel-vlog": "quiet-aesthetic-min",
   };
-  return map[presetID] || "dynamic-minimal";
+  return map[presetID] || "tiktok-classic-outline";
 }
 
 function styleSwatch(style) {

@@ -22,10 +22,12 @@ class CaptionEngineTests(unittest.TestCase):
         self.assertGreaterEqual(len(styles), 30)
         for required in caption_styles.REQUIRED_IDS:
             self.assertIn(required, ids)
-        self.assertEqual(caption_styles.default_for_preset("viral-hook"), "dynamic-minimal")
+        self.assertEqual(caption_styles.default_for_preset("viral-hook"), "tiktok-classic-outline")
+        self.assertEqual(caption_styles.resolve_id("dynamic-minimal"), "tiktok-classic-outline")
+        self.assertEqual(caption_styles.style_by_id("hormozi-classic")["id"], "hormozi-yellow-pop")
 
     def test_ass_karaoke_emits_k_tags(self):
-        style = caption_styles.style_by_id("dynamic-minimal")
+        style = caption_styles.style_by_id("tiktok-classic-outline")
         cues = [{
             "start": 0.0,
             "duration": 1.2,
@@ -80,7 +82,7 @@ class CaptionEngineTests(unittest.TestCase):
         ])
         self.assertEqual(cues_overlap(remapped), [])
 
-        style = caption_styles.style_by_id("dynamic-minimal")
+        style = caption_styles.style_by_id("tiktok-classic-outline")
         ass = caption_ass.build_ass(overlapping, style, 1080, 1920, "Montserrat ExtraBold")
         windows = caption_ass.dialogue_windows(ass)
         self.assertGreaterEqual(len(windows), 2)
@@ -121,6 +123,35 @@ class CaptionEngineTests(unittest.TestCase):
         self.assertIn("crop=1080:1920", vf)
         self.assertIn("setsar=1", vf)
         self.assertNotIn("pad=", vf)
+
+    def test_ass_sets_primary_highlight_and_secondary_base(self):
+        style = caption_styles.style_by_id("karaoke-yellow-sweep")
+        ass = caption_ass.build_ass([{
+            "start": 0, "duration": 1.0, "text": "Stop scrolling",
+            "words": [{"word": "Stop", "duration": 0.4}, {"word": "scrolling", "duration": 0.6}],
+            "highlightWordIndex": 1,
+        }], style, 1080, 1920, "Montserrat ExtraBold")
+        self.assertIn(caption_ass.ass_color(style["highlight"]), ass)
+        self.assertIn(caption_ass.ass_color(style["fill"]), ass)
+        self.assertIn(r"\kf", ass)
+        self.assertIn("\\pos(", ass)
+        self.assertIn("1030", ass)
+        text = Path(__file__).resolve().parents[1].joinpath("reelforge/renderer.py").read_text(encoding="utf-8")
+        self.assertNotIn("subtitles=", text)
+        self.assertNotIn("drawtext", text)
+        self.assertIn("ass=", caption_ass.ffmpeg_ass_filter("captions.ass", "/fonts"))
+
+    def test_caption_band_and_gradient_is_accent_only(self):
+        from reelforge.captions import caption_band, caption_center_y
+        left, top, box_w, box_h = caption_band(1080, 1920)
+        self.assertAlmostEqual(top, 700, delta=1)
+        self.assertAlmostEqual(top + box_h, 1360, delta=1)
+        self.assertGreaterEqual(caption_center_y(1920), 700)
+        self.assertLessEqual(caption_center_y(1920), 1360)
+        style = caption_styles.style_by_id("gradient-rainbow-word")
+        self.assertEqual(style["role"], "accent")
+        self.assertEqual(style["renderer"], "png")
+        self.assertEqual(style["gradient"][0].upper(), "#FF0040")
 
 
 if __name__ == "__main__":

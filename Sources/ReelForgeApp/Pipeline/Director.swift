@@ -322,6 +322,10 @@ final class Director: @unchecked Sendable {
             musicPath: musicURL.path,
             musicVolume: request.preset.music.duckLinear
         )
+        // Same .ass Windows burns with ffmpeg ass= — karaoke parity, never subtitles=.
+        let assLook = CaptionCatalog.look(id: request.captionStyleID)
+        let assText = CaptionASS.build(cues: project.captions, look: assLook, width: plan.width, height: plan.height)
+        try assText.write(to: assetsDir.appendingPathComponent("captions.ass"), atomically: true, encoding: .utf8)
         // VO starts at 0 with the hook. No music-only or logo open.
 
         var renderedClips: [URL] = []

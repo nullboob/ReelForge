@@ -15,7 +15,7 @@ final class AppState: ObservableObject {
     @Published var usePexels = true
     @Published var usePixabay = true
     @Published var allowCards = false
-    @Published var captionStyleID: String = UserDefaults.standard.string(forKey: "reelforge.captionStyleID") ?? "dynamic-minimal"
+    @Published var captionStyleID: String = CaptionCatalog.resolve(id: UserDefaults.standard.string(forKey: "reelforge.captionStyleID"))
     @Published var useLocalAI = true
     @Published var burnCaptions = true
     @Published var exportSRT = true

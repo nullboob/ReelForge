@@ -20,7 +20,7 @@ public enum CaptionSplitter {
     ) -> [CaptionCue] {
         let words = tokenize(text)
         guard !words.isEmpty, duration > 0 else { return [] }
-        let cards = pack(words: words, maxWords: max(1, min(maxWordsPerCard, 12)))
+        let cards = wordClockCards(words: words, maxWords: maxWordsPerCard, duration: duration)
         return timeCards(cards, duration: duration)
     }
 
@@ -52,7 +52,7 @@ public enum CaptionSplitter {
     public static func hookCard(text: String, duration: Double, maxWords: Int) -> CaptionCue {
         let words = tokenize(text)
         var card: [String] = []
-        let limit = max(1, min(maxWords, 6))
+        let limit = max(1, min(maxWords, 3))
         for word in words {
             card.append(word)
             let punct = word.last.map { ".!?".contains($0) } ?? false
@@ -107,6 +107,53 @@ public enum CaptionSplitter {
             .filter { !$0.isEmpty }
     }
 
+    public static func emphasisIndex(_ words: [String]) -> Int {
+        let stop: Set<String> = ["the", "a", "an", "to", "of", "and", "or", "in", "on", "for", "is", "your", "this", "that"]
+        var best = 0
+        var bestLen = 0
+        for (index, word) in words.enumerated() {
+            let clean = word.lowercased().trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+            if stop.contains(clean) && words.count > 1 { continue }
+            if clean.count >= bestLen {
+                best = index
+                bestLen = clean.count
+            }
+        }
+        return best
+    }
+
+    private static func wordClockCards(words: [String], maxWords: Int, duration: Double, maxSeconds: Double = 2.0) -> [[String]] {
+        let capped = max(1, min(maxWords, 3))
+        var cards = pack(words: words, maxWords: capped)
+        cards = splitOverlong(cards, duration: duration, maxSeconds: maxSeconds)
+        return cards
+    }
+
+    private static func splitOverlong(_ cards: [[String]], duration: Double, maxSeconds: Double) -> [[String]] {
+        guard !cards.isEmpty, duration > 0 else { return cards }
+        var current = cards
+        for _ in 0..<12 {
+            let weights = current.map { Double(max(1, $0.joined().count)) }
+            let sum = weights.reduce(0, +)
+            var changed = false
+            var next: [[String]] = []
+            for (index, card) in current.enumerated() {
+                let slice = duration * (weights[index] / max(sum, 1))
+                if slice > maxSeconds + 0.001 && card.count > 1 {
+                    let mid = max(1, card.count / 2)
+                    next.append(Array(card.prefix(mid)))
+                    next.append(Array(card.suffix(card.count - mid)))
+                    changed = true
+                } else {
+                    next.append(card)
+                }
+            }
+            current = next
+            if !changed { break }
+        }
+        return current
+    }
+
     private static func pack(words: [String], maxWords: Int) -> [[String]] {
         var cards: [[String]] = []
         var current: [String] = []
@@ -147,7 +194,7 @@ public enum CaptionSplitter {
                     start: cursor,
                     duration: held,
                     words: words,
-                    highlightWordIndex: card.count > 2 ? min(card.count - 1, 1) : 0
+                    highlightWordIndex: emphasisIndex(card)
                 )
             )
             cursor += held

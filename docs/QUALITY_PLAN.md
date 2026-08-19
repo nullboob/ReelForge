@@ -4,15 +4,17 @@ Exports should be uploadable as a finished Short with no rework. A pink-to-black
 
 ## What this pass shipped
 
-- Shared 30-style catalog at `Sources/ReelForgeCore/Resources/caption-styles/catalog.json`.
+- Shared 30-style research catalog at `Sources/ReelForgeCore/Resources/caption-styles/catalog.json`. Old IDs alias (e.g. `dynamic-minimal` → `tiktok-classic-outline`).
 - Bundled OFL/Apache fonts in `Sources/ReelForgeCore/Resources/fonts/` (Montserrat ExtraBold, Anton, Bebas Neue, Archivo Black, Oswald, Open Sans, Inter, Poppins, Roboto).
-- Windows burn-in uses ffmpeg `ass=` with `\k` / `\kf` karaoke, or Pillow RGBA plates for gradients and pills.
+- Windows burn-in uses ffmpeg `-vf ass=` only (never `subtitles=` or `drawtext`). Karaoke is `\k` snap and `\kf` fill. PrimaryColour=highlight, SecondaryColour=base.
+- PIL PNG overlay for multi-stop gradients, chrome/metal/fire/ice/candy, rounded pills, 3D stacks, bar wipes. Gradients are hook/accent only — default body is white + black stroke karaoke.
+- Mac writes the same `.ass` for karaoke parity. CAGradientLayer is not used for 3+ stop fills.
 - Mac SwiftUI picker uses the same catalog. ClipWriter karaoke / pop / plates honor the selected look.
 - Voice order: Kokoro-FastAPI `http://127.0.0.1:8880/v1/audio/speech`, then edge-tts (Microsoft neural), then system TTS. Piper is not embedded.
 - Stock: Pexels video first, Pixabay second. Cards are last-resort. Cards-only export is blocked unless the user opts into **cards ok**.
 - Ken Burns on stills, gentle zoom pulse on video, eq/vignette grade, optional grain.
 - Export target: 1080×1920 (or preset aspect), 30 fps, libx264 CRF 18, yuv420p, AAC 192k, music ducked 8–12 dB under VO.
-- Caption safe area: below the top ~12% and above the bottom ~18%, plus the 9:16 right rail.
+- Caption block on 1080×1920 sits in y 700–1360 (above TikTok/Shorts UI). Word clock: 1–3 words or ≤2.0s per card, one emphasis word.
 - Captions **replace**, never stack. ASS/PNG windows are exclusive. The hook beat is one clean card for the full hold (≥1.5s).
 - Cards and stock **cover** 1080×1920 (scale+crop, `setsar=1`). No letterbox bars. A render with overlapping captions or black bars is not done.
 - Footage ladder: local files → Pexels / Pixabay → in-app LTX hook + Qwen stills (if Model Manager marked them Ready) → cards only if `allowCards`.
@@ -20,11 +22,11 @@ Exports should be uploadable as a finished Short with no rework. A pink-to-black
 
 ## The 30 styles
 
-CapCut / 2026 short-form: `dynamic-minimal`, `hormozi-classic`, `pill-black`, `pill-yellow`, `pill-hot`, `pill-brand`, `capcut-classic`, `most-readable`, `fancy-soft`, `checksub-rose`, `glow-clean`, `boxed-outline`, `typewriter`, `color-switch`, `quiet-aesthetic`, `bebas-sports`, `archivo-hype`, `tiktok-native`.
+ASS-first: `tiktok-classic-outline`, `hormozi-yellow-pop`, `karaoke-yellow-sweep`, `word-pop-sync`, `single-word-center`, `bounce-fitness`, `typewriter-story`, `quiet-aesthetic-min`, `color-switch-strobe`, `commentary-telegraph`, `kinetic-hook-slide`, `neon-glow-pulse`, `outline-double-stroke`, `faceless-stack-highlight`, `podcast-split-karaoke`, `cinematic-gold-fade`.
 
-Premiere / AE gradients: `sunset-fill`, `candy-pop`, `neon-cyber`, `gold-metallic`, `fire-sweep`, `ice-chrome`, `rainbow-word`, `duotone-sun`, `chrome-silver`, `ocean-teal`, `grape-aurora`, `lime-punch`.
+PIL-first: `boxed-pill-yellow`, `beast-3d-pop`, `listicle-number-chip`, `boxed-kinetic-bar`, `cta-urgent-red`, plus the nine Premiere/AE gradients (`gradient-rainbow-word` … `gradient-duotone-yellow-pink`).
 
-Viral Hook defaults to **dynamic-minimal** (white karaoke, no yellow). Hormozi Classic stays a named option.
+Viral Hook defaults to **tiktok-classic-outline** (white + black stroke karaoke). `dynamic-minimal` still resolves.
 
 ## Still needs a live machine
 

@@ -202,7 +202,7 @@ def burn_captions_layer(
     font_name = (font_file.stem if font_file else None) or style.get("font") or "Montserrat ExtraBold"
     ass.write_text(caption_ass.build_ass(captions, style, width, height, font_name, primary_hex), encoding="utf-8")
     fonts = ffpath(fonts_dir())
-    ass_filter = f"ass={ass.name}:fontsdir={fonts}"
+    ass_filter = caption_ass.ffmpeg_ass_filter(ass.name, fonts)
     chain = f"{vf},{ass_filter}" if vf else ass_filter
     run_ffmpeg(
         ["-i", silent.name, "-vf", chain, "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-r", "30", dest.name],

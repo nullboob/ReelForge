@@ -4,7 +4,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from reelforge.captions import align, apply_tts_words, cues, cues_overlap, exclusive_cues, safe_area, srt_string
+from reelforge.captions import align, apply_tts_words, caption_band, cues, cues_overlap, exclusive_cues, safe_area, srt_string
 from reelforge.presets import get_preset, max_caption_words
 from reelforge.publish import thumbnail_headline, write_pack
 from reelforge.script import write
@@ -15,22 +15,26 @@ class CaptionTests(unittest.TestCase):
     def test_packs_to_max_words(self):
         text = "one two three four five six seven eight nine"
         packed = align(text, 9, 4)
-        self.assertEqual(len(packed), 3)
-        self.assertTrue(all(len(cue["text"].split()) <= 4 for cue in packed))
+        self.assertTrue(all(len(cue["text"].split()) <= 3 for cue in packed))
+        self.assertTrue(all(cue["duration"] <= 2.05 for cue in packed))
         self.assertAlmostEqual(packed[0]["start"], 0)
         self.assertAlmostEqual(packed[-1]["start"] + packed[-1]["duration"], 9, delta=0.08)
+        self.assertTrue(all(cue.get("highlightWordIndex") is not None for cue in packed))
 
-    def test_viral_hook_is_3_to_6_words(self):
+    def test_viral_hook_is_1_to_3_words(self):
         preset = get_preset("viral-hook")
-        self.assertEqual(max_caption_words(preset), 5)
-        self.assertEqual(max_caption_words({**preset, "captionStyle": {**preset["captionStyle"], "maxWordsPerCard": 12}}), 6)
-        self.assertEqual(max_caption_words({**preset, "captionStyle": {**preset["captionStyle"], "maxWordsPerCard": 2}}), 3)
+        self.assertEqual(max_caption_words(preset), 3)
+        self.assertEqual(max_caption_words({**preset, "captionStyle": {**preset["captionStyle"], "maxWordsPerCard": 12}}), 3)
+        self.assertEqual(max_caption_words({**preset, "captionStyle": {**preset["captionStyle"], "maxWordsPerCard": 1}}), 1)
 
     def test_safe_area_clears_shorts_chrome(self):
         x, y, w, h = safe_area(1080, 1920)
         self.assertGreaterEqual(y / 1920, 0.17)
         self.assertGreaterEqual((1920 - (y + h)) / 1920, 0.11)
         self.assertLessEqual((x + w) / 1080, 0.83)
+        left, top, box_w, box_h = caption_band(1080, 1920)
+        self.assertAlmostEqual(top, 700, delta=1)
+        self.assertAlmostEqual(top + box_h, 1360, delta=1)
 
     def test_srt_covers_cues(self):
         packed = align("one two three four", 4, 2)
@@ -76,7 +80,7 @@ class CaptionTests(unittest.TestCase):
         first = packed[0]
         self.assertAlmostEqual(first["start"], hook["start"], delta=0.02)
         self.assertGreaterEqual(first["duration"], min(1.48, hook["duration"] - 0.05))
-        self.assertLessEqual(len(first["text"].split()), 6)
+        self.assertLessEqual(len(first["text"].split()), 3)
         self.assertFalse("." in first["text"].rstrip(".") and first["text"].count(".") > 1)
 
 

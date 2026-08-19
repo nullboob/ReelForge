@@ -19,7 +19,7 @@ def align(text: str, duration: float, max_words_per_card: int) -> list[dict[str,
     words = tokenize(text)
     if not words or duration <= 0:
         return []
-    cards = pack(words, max(1, min(max_words_per_card, 12)))
+    cards = word_clock_cards(words, max_words_per_card, duration)
     return time_cards(cards, duration)
 
 
@@ -47,7 +47,7 @@ def hook_card(text: str, duration: float, max_words: int) -> dict[str, Any]:
     """One clean hook card for the full hook hold — never two lines in the first 1.5s."""
     words = tokenize(text)
     card: list[str] = []
-    limit = max(1, min(max_words, 6))
+    limit = max(1, min(max_words, 3))
     for word in words:
         card.append(word)
         punct = word[-1] in ".!?" if word else False
@@ -63,6 +63,50 @@ def hook_card(text: str, duration: float, max_words: int) -> dict[str, Any]:
 
 def tokenize(text: str) -> list[str]:
     return [part for part in text.split() if part]
+
+
+def emphasis_index(words: list[str]) -> int:
+    stop = {"the", "a", "an", "to", "of", "and", "or", "in", "on", "for", "is", "your", "this", "that"}
+    best = 0
+    best_len = 0
+    for index, word in enumerate(words):
+        clean = "".join(ch for ch in word.lower() if ch.isalnum())
+        if clean in stop and len(words) > 1:
+            continue
+        if len(clean) >= best_len:
+            best = index
+            best_len = len(clean)
+    return best
+
+
+def word_clock_cards(words: list[str], max_words: int, duration: float, max_seconds: float = 2.0) -> list[list[str]]:
+    capped = max(1, min(max_words, 3))
+    cards = pack(words, capped)
+    return split_overlong(cards, duration, max_seconds)
+
+
+def split_overlong(cards: list[list[str]], duration: float, max_seconds: float) -> list[list[str]]:
+    if not cards or duration <= 0:
+        return cards
+    current = [list(card) for card in cards]
+    for _ in range(12):
+        weights = [float(max(1, len("".join(card)))) for card in current]
+        total = sum(weights) or 1.0
+        changed = False
+        next_cards: list[list[str]] = []
+        for index, card in enumerate(current):
+            slice_ = duration * (weights[index] / total)
+            if slice_ > max_seconds + 0.001 and len(card) > 1:
+                mid = max(1, len(card) // 2)
+                next_cards.append(card[:mid])
+                next_cards.append(card[mid:])
+                changed = True
+            else:
+                next_cards.append(card)
+        current = next_cards
+        if not changed:
+            break
+    return current
 
 
 def pack(words: list[str], max_words: int) -> list[list[str]]:
@@ -101,7 +145,7 @@ def time_cards(cards: list[list[str]], duration: float) -> list[dict[str, Any]]:
             "start": cursor,
             "duration": d,
             "words": words,
-            "highlightWordIndex": min(len(card) - 1, 1) if len(card) > 2 else 0,
+            "highlightWordIndex": emphasis_index(card),
         })
         cursor += d
     return exclusive_cues(cues_out)
@@ -221,3 +265,15 @@ def safe_area(width: float, height: float) -> tuple[float, float, float, float]:
     bottom = height * 0.18
     top = height * 0.12
     return left, bottom, max(1.0, width - left - right), max(1.0, height - bottom - top)
+
+
+def caption_band(width: float, height: float) -> tuple[float, float, float, float]:
+    """Caption block for 1080×1920 lives around y 700–1360. Other sizes scale."""
+    left, _, box_w, _ = safe_area(width, height)
+    top = height * (700.0 / 1920.0)
+    bottom = height * (1360.0 / 1920.0)
+    return left, top, box_w, max(1.0, bottom - top)
+
+
+def caption_center_y(height: float) -> float:
+    return height * ((700.0 + 1360.0) / 2.0 / 1920.0)

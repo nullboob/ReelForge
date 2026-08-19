@@ -65,7 +65,5 @@ def duck_linear(preset: dict[str, Any]) -> float:
 
 
 def max_caption_words(preset: dict[str, Any]) -> int:
-    requested = int(preset.get("captionStyle", {}).get("maxWordsPerCard", 5))
-    if preset.get("id") == "viral-hook":
-        return min(max(requested, 3), 6)
-    return max(1, requested)
+    requested = int(preset.get("captionStyle", {}).get("maxWordsPerCard", 3))
+    return max(1, min(requested, 3))

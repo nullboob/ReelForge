@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from reelforge.captions import exclusive_cues, safe_area
+from reelforge.captions import caption_band, caption_center_y, exclusive_cues
 from reelforge.cards import hex_to_rgb
 
 
@@ -25,6 +25,11 @@ def escape_ass(text: str) -> str:
     return text.replace("\\", r"\\").replace("{", r"\{").replace("}", r"\}").replace("\n", r"\N")
 
 
+def ffmpeg_ass_filter(ass_name: str, fonts_dir: str) -> str:
+    """Hard rule: burn with ass= only. Never subtitles= or drawtext."""
+    return f"ass={ass_name}:fontsdir={fonts_dir}"
+
+
 def build_ass(
     cues: list[dict[str, Any]],
     style: dict[str, Any],
@@ -33,10 +38,10 @@ def build_ass(
     font_name: str,
     primary_hex: str | None = None,
 ) -> str:
-    left, bottom, box_w, box_h = safe_area(width, height)
+    left, top, box_w, box_h = caption_band(width, height)
     margin_l = int(left)
     margin_r = int(width - left - box_w)
-    margin_v = int(height * 0.18) if style.get("position") == "bottom" else int(height * 0.12)
+    margin_v = int(height - top - box_h)
     align = 2 if style.get("position") == "bottom" else 5
     fill = style.get("fill") or "#FFFFFF"
     highlight = style.get("highlight") or fill
@@ -52,7 +57,7 @@ def build_ass(
     size = int(style.get("size") or 64)
     italic = -1 if "italic" in (style.get("font") or "").lower() else 0
     cx = width / 2
-    cy = height * 0.48 if style.get("position") != "bottom" else height * (1 - 0.22)
+    cy = caption_center_y(height)
 
     header = [
         "[Script Info]",
@@ -81,10 +86,14 @@ def build_ass(
         overrides = [f"\\pos({cx:.0f},{cy:.0f})"]
         if animation == "pop-scale":
             overrides.append(r"\fscx118\fscy118\t(0,140,\fscx100\fscy100)")
+        elif animation == "bounce":
+            overrides.append(r"\fscx110\fscy120\t(0,80,\fscx100\fscy100)\t(80,160,\fscx104\fscy96)\t(160,240,\fscx100\fscy100)")
         elif animation == "fade":
             overrides.append(r"\fad(90,90)")
         elif animation == "slide-up":
             overrides.append(f"\\move({cx:.0f},{cy + 40:.0f},{cx:.0f},{cy:.0f},0,160)")
+        elif animation == "glow-pulse":
+            overrides.append(r"\blur2\t(0,200,\blur6)\t(200,400,\blur2)")
         prefix = "{" + "".join(overrides) + "}"
         header.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{prefix}{text}")
     return "\n".join(header) + "\n"
@@ -131,15 +140,21 @@ def cue_text(cue: dict[str, Any], style: dict[str, Any], animation: str) -> str:
         chars = list(" ".join(tokens))
         each = max(1, int(((cue.get("duration") or 0.8) / max(1, len(chars))) * 100))
         return "".join(rf"{{\k{each}}}{escape_ass(ch)}" for ch in chars)
-    if style.get("id") == "quiet-aesthetic" or animation in {"none", ""}:
+    if style.get("karaoke") == "none" or animation in {"none", ""}:
         return escape_ass(" ".join(tokens))
-    tag = r"\kf" if animation in {"karaoke-fill", "gradient-sweep"} or style.get("id") == "fire-sweep" else r"\k"
+    tag = r"\kf" if (style.get("karaoke") == "fill" or animation in {"karaoke-fill", "gradient-sweep"}) else r"\k"
+    emphasis = cue.get("highlightWordIndex")
+    if emphasis is None:
+        from reelforge.captions import emphasis_index
+        emphasis = emphasis_index(tokens)
     parts = []
     for index, word in enumerate(words):
         dur = max(1, int(float(word.get("duration") or 0.2) * 100))
         token = word.get("word") or ""
         color = ""
-        if style.get("id") == "color-switch" and index % 2 == 1:
+        if style.get("id") == "color-switch-strobe" and index % 2 == 1:
             color = r"\1c" + ass_color(style.get("highlight") or "#FF4D6D")
+        elif index == emphasis and style.get("primitive") == "keyword-paint":
+            color = r"\1c" + ass_color(style.get("highlight") or "#F7C204")
         parts.append(rf"{{{tag}{dur}{color}}}{escape_ass(token)}")
     return " ".join(parts)

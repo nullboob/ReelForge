@@ -9,11 +9,14 @@ from reelforge.paths import caption_catalog_path, fonts_dir
 
 
 REQUIRED_IDS = [
-    "dynamic-minimal", "hormozi-classic", "pill-black", "pill-yellow", "pill-hot", "pill-brand",
-    "capcut-classic", "most-readable", "fancy-soft", "checksub-rose", "glow-clean", "boxed-outline",
-    "typewriter", "color-switch", "quiet-aesthetic", "bebas-sports", "archivo-hype", "tiktok-native",
-    "sunset-fill", "candy-pop", "neon-cyber", "gold-metallic", "fire-sweep", "ice-chrome",
-    "rainbow-word", "duotone-sun", "chrome-silver", "ocean-teal", "grape-aurora", "lime-punch",
+    "tiktok-classic-outline", "hormozi-yellow-pop", "karaoke-yellow-sweep", "word-pop-sync",
+    "single-word-center", "bounce-fitness", "typewriter-story", "quiet-aesthetic-min",
+    "color-switch-strobe", "commentary-telegraph", "kinetic-hook-slide", "neon-glow-pulse",
+    "outline-double-stroke", "faceless-stack-highlight", "podcast-split-karaoke", "cinematic-gold-fade",
+    "boxed-pill-yellow", "beast-3d-pop", "listicle-number-chip", "boxed-kinetic-bar",
+    "cta-urgent-red", "gradient-rainbow-word", "gradient-sunset-fill", "gradient-chrome-metallic",
+    "gradient-neon-cyan-magenta", "gradient-gold-metallic", "gradient-fire", "gradient-ice",
+    "gradient-candy", "gradient-duotone-yellow-pink",
 ]
 
 
@@ -26,16 +29,28 @@ def all_styles() -> list[dict[str, Any]]:
     return list(load_catalog().get("styles") or [])
 
 
+def resolve_id(style_id: str | None) -> str:
+    catalog = load_catalog()
+    aliases = catalog.get("aliases") or {}
+    current = style_id or catalog.get("defaultStyleID") or "tiktok-classic-outline"
+    seen: set[str] = set()
+    while current in aliases and current not in seen:
+        seen.add(current)
+        current = aliases[current]
+    return current
+
+
 def style_by_id(style_id: str | None) -> dict[str, Any]:
     styles = {item["id"]: item for item in all_styles()}
-    if style_id and style_id in styles:
-        return styles[style_id]
-    return styles[load_catalog().get("defaultStyleID") or "dynamic-minimal"]
+    resolved = resolve_id(style_id)
+    if resolved in styles:
+        return styles[resolved]
+    return styles[load_catalog().get("defaultStyleID") or "tiktok-classic-outline"]
 
 
 def default_for_preset(preset_id: str) -> str:
     mapped = (load_catalog().get("presetDefaults") or {}).get(preset_id)
-    return mapped or load_catalog().get("defaultStyleID") or "dynamic-minimal"
+    return resolve_id(mapped or load_catalog().get("defaultStyleID") or "tiktok-classic-outline")
 
 
 def font_path(style: dict[str, Any]) -> Path | None:
@@ -51,7 +66,6 @@ def font_path(style: dict[str, Any]) -> Path | None:
 
 
 def max_words(style: dict[str, Any], preset_id: str, requested: int) -> int:
-    cap = int(style.get("maxWords") or requested or 5)
-    if preset_id == "viral-hook":
-        return min(max(cap, 3), 6)
-    return max(1, cap)
+    _ = preset_id
+    cap = int(style.get("maxWords") or requested or 3)
+    return max(1, min(cap, 3))
