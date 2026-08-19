@@ -25,6 +25,9 @@ jobs:
           test -d Sources/ReelForgeCore/Resources/presets
           test ! -f Sources/ReelForgeApp/Pipeline/ComfyUIClient.swift
           test ! -f Sources/ReelForgeCore/LocalAI/ComfyWorkflowBuilder.swift
+          test -f Sources/ReelForgeCore/LocalAI/FootageLadder.swift
+          test -f Sources/ReelForgeApp/Pipeline/ComfyClient.swift
+          test -f Sources/ReelForgeCore/Resources/workflows/ltx-fast.json
           echo "macOS app sources are present; build them with XcodeGen on macOS 14+."
 
   python-test:
@@ -43,4 +46,6 @@ jobs:
       - name: Unit tests
         env:
           REELFORGE_SKIP_INFER: "1"
+          REELFORGE_SKIP_COMFY: "1"
+          REELFORGE_SKIP_ACE: "1"
         run: python -m unittest discover -s windows/tests -v

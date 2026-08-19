@@ -1,12 +1,80 @@
 from __future__ import annotations
 
 import math
+import os
 import struct
 import wave
 from pathlib import Path
 
+import httpx
+
 SAMPLE_RATE = 44100
 LOOP_SECONDS = 8.0
+
+
+ACE_PROBE = (
+    "http://127.0.0.1:7865/",
+    "http://127.0.0.1:7865/config",
+    "http://127.0.0.1:8001/health",
+    "http://127.0.0.1:8019/health",
+)
+ACE_GENERATE = (
+    "http://127.0.0.1:7865/generate",
+    "http://127.0.0.1:8001/generate",
+    "http://127.0.0.1:8001/v1/music",
+    "http://127.0.0.1:8019/generate",
+)
+
+
+def probe_ace() -> bool:
+    if os.environ.get("REELFORGE_SKIP_ACE") == "1":
+        return False
+    for url in ACE_PROBE:
+        try:
+            with httpx.Client(timeout=0.6) as client:
+                if client.get(url).status_code < 500:
+                    return True
+        except Exception:
+            continue
+    return False
+
+
+def try_ace_step(dest: Path, mood: str, bpm: int, duration: float) -> bool:
+    if os.environ.get("REELFORGE_SKIP_ACE") == "1":
+        return False
+    body = {
+        "prompt": f"Instrumental {mood} bed, {bpm} BPM, no vocals, clean loop, original-safe electronic score",
+        "lyrics": "",
+        "duration": max(8, int(duration or 8)),
+        "bpm": bpm,
+        "infer_step": 30,
+    }
+    for url in ACE_GENERATE:
+        try:
+            with httpx.Client(timeout=8.0) as client:
+                response = client.post(url, json=body)
+            if response.status_code >= 300 or len(response.content) < 200:
+                continue
+            try:
+                payload = response.json()
+            except Exception:
+                payload = None
+            if isinstance(payload, dict):
+                b64 = payload.get("audio") or payload.get("wav")
+                if isinstance(b64, str):
+                    import base64
+                    dest.write_bytes(base64.b64decode(b64))
+                    return dest.exists() and dest.stat().st_size > 200
+                path = payload.get("path")
+                if isinstance(path, str) and Path(path).exists():
+                    dest.write_bytes(Path(path).read_bytes())
+                    return True
+            if response.content[:4] in {b"RIFF", b"fLaC", b"OggS"} or response.headers.get("content-type", "").startswith("audio/"):
+                dest.write_bytes(response.content)
+                return True
+        except Exception:
+            continue
+    return False
 
 
 def write_loop(mood: str, bpm: int, dest: Path, duration: float | None = None) -> Path:

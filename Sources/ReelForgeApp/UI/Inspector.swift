@@ -138,8 +138,8 @@ struct Inspector: View {
                         Button("Add Pexels / Pixabay keys in Settings") { state.showSettings = true }
                             .buttonStyle(GhostButtonStyle())
                     }
-                    if !state.pexelsConfigured && !state.pixabayConfigured && state.footageURLs.isEmpty && !state.localStatus.models.anyReady {
-                        Text("Cards, not a real video. Add stock keys, drop files, or scan Ready weights. Accept will block unless you check cards ok.")
+                    if !state.pexelsConfigured && !state.pixabayConfigured && state.footageURLs.isEmpty && !state.localStatus.models.anyReady && !state.localStatus.comfy {
+                        Text("Cards, not a real video. Add stock keys, drop files, or start ComfyUI at 127.0.0.1:8188. Accept will block unless you check cards ok.")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(RFTheme.accent)
                             .padding(8)
@@ -147,9 +147,17 @@ struct Inspector: View {
                     }
                     Toggle("Cards ok (slide-deck export)", isOn: $state.allowCards)
                     Toggle("Unsplash stills (manual only, off by default)", isOn: $state.useUnsplash)
-                    Toggle("Use Ready local models (LTX / Qwen)", isOn: $state.useLocalAI)
-                    if state.useLocalAI && !state.localStatus.models.anyReady {
-                        Text("No weights found. Core still works. Point modelsDir at your safetensors in Settings, or add a Pexels key.")
+                    Toggle("Use local gen when ComfyUI is up", isOn: $state.useLocalAI)
+                    Picker("Local gen mode", selection: $state.localMode) {
+                        Text("Stock first").tag(LocalGenMode.stockFirst.rawValue)
+                        Text("Local Fast").tag(LocalGenMode.localFast.rawValue)
+                        Text("Local Quality").tag(LocalGenMode.localQuality.rawValue)
+                    }
+                    .onChange(of: state.localMode) { _, _ in
+                        state.persistComfySettings()
+                    }
+                    if state.useLocalAI && !state.localStatus.comfy && !state.localStatus.models.anyReady {
+                        Text("ComfyUI is down and no in-app weights were found. Start Comfy at 127.0.0.1:8188 or add a Pexels key.")
                             .font(.system(size: 11))
                             .foregroundStyle(RFTheme.muted)
                     }

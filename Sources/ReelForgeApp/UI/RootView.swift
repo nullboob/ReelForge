@@ -76,6 +76,10 @@ struct TopBar: View {
             chip(state.localStatus.models.anyReady ? "Models Ready" : "Core (no weights)", on: state.localStatus.models.anyReady)
             chip(state.localStatus.ollama ? "Ollama" : "LLM off", on: state.localStatus.ollama)
             chip(state.pexelsConfigured ? "Pexels" : "No Pexels", on: state.pexelsConfigured)
+            chip(state.localStatus.comfy ? "Comfy" : "Comfy off", on: state.localStatus.comfy)
+            chip(state.localStatus.comfyLTX ? "LTX" : "LTX off", on: state.localStatus.comfyLTX)
+            chip(state.localStatus.comfyWan ? "Wan" : "Wan off", on: state.localStatus.comfyWan)
+            chip(state.localStatus.comfyQwen ? "Qwen" : "Qwen off", on: state.localStatus.comfyQwen)
             if state.useUnsplash {
                 chip(state.unsplashConfigured ? "Unsplash" : "Unsplash off", on: state.unsplashConfigured)
             }

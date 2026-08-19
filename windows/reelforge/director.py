@@ -48,8 +48,10 @@ class Director:
 
     def status(self) -> dict[str, Any]:
         settings = settings_store.load()
+        from reelforge import comfy
         from reelforge import models
         catalog = models.scan(settings.get("modelsDir") or None)
+        comfy_status = comfy.probe(settings.get("comfyUrl"))
         return {
             "kokoro": speech.probe_kokoro(),
             "ollama": speech.probe_ollama(),
@@ -64,6 +66,10 @@ class Director:
             "videoReady": catalog.get("videoReady"),
             "imageReady": catalog.get("imageReady"),
             "anyReady": catalog.get("anyReady"),
+            "comfy": comfy_status,
+            "comfyUrl": settings.get("comfyUrl") or comfy.DEFAULT_URL,
+            "localMode": settings.get("localMode") or "stock-first",
+            "aceStep": music.probe_ace(),
         }
 
     def new_project(self) -> dict[str, Any]:
@@ -97,6 +103,7 @@ class Director:
             "useUnsplash": bool(payload.get("useUnsplash")),
             "useLocalAI": payload.get("useLocalAI", True),
             "useLocalModels": payload.get("useLocalModels", settings_store.load().get("useLocalModels", True)),
+            "localMode": payload.get("localMode") or settings_store.load().get("localMode") or "stock-first",
             "voiceIdentifier": payload.get("voiceIdentifier"),
             "captionStyleID": style_id,
             "allowCards": bool(payload.get("allowCards")),
@@ -219,7 +226,7 @@ class Director:
                 raise boardlib.StoryboardError()
             self.project["storyboard"] = board
 
-        self._emit("Pexels / Pixabay B-roll first", 0.48)
+        self._emit("User files, stock, then ComfyUI if up", 0.48)
         assignments, ledger, warnings, cards_only = footage.gather(
             board["beats"],
             preset,
@@ -233,6 +240,9 @@ class Director:
             use_pixabay=bool(settings.get("usePixabay", True)),
             use_local_models=bool(settings.get("useLocalModels", True)),
             models_dir=settings.get("modelsDir") or None,
+            local_mode=payload.get("localMode") or settings.get("localMode") or "stock-first",
+            comfy_url=settings.get("comfyUrl") or None,
+            comfy_settings=settings,
             on_progress=lambda detail: self._emit(detail, 0.5),
         )
         self.project["warnings"] = list(self.project.get("warnings") or []) + warnings
@@ -241,7 +251,7 @@ class Director:
         if cards_only and not allow_cards:
             raise ValueError(
                 "This export would be cards, not a real video. Add a Pexels or Pixabay key, "
-                "drop local footage, point Model Manager at Ready weights, or check “cards ok” "
+                "drop local footage, start ComfyUI at 127.0.0.1:8188, or check “cards ok” "
                 "if you really want a type-card export."
             )
 
@@ -252,8 +262,16 @@ class Director:
             "id": "music",
             "kind": "audio",
             "source": music_source,
-            "license": "User imported" if music_source == "user-folder" else "Original-safe bundled bed",
-            "credit": "Imported music folder" if music_source == "user-folder" else f"ReelForge {preset.get('music', {}).get('mood', 'pulse')} bed",
+            "license": (
+                "User imported" if music_source == "user-folder"
+                else "Generated in-app" if music_source == "ace-step"
+                else "Original-safe bundled bed"
+            ),
+            "credit": (
+                "Imported music folder" if music_source == "user-folder"
+                else "ACE-Step local" if music_source == "ace-step"
+                else f"ReelForge {preset.get('music', {}).get('mood', 'pulse')} bed"
+            ),
         })
         ledger.append({
             "id": "voice",
@@ -315,6 +333,8 @@ class Director:
                 import shutil
                 shutil.copy2(audio[0], dest)
                 return "user-folder"
+        if music.try_ace_step(dest, preset.get("music", {}).get("mood") or "pulse", int(preset.get("music", {}).get("bpm") or 120), duration):
+            return "ace-step"
         music.write_loop(preset.get("music", {}).get("mood") or "pulse", int(preset.get("music", {}).get("bpm") or 120), dest, duration)
         return "bundled-bed"
 

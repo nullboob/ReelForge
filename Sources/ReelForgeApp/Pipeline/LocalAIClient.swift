@@ -11,10 +11,15 @@ struct LocalAIStatus: Equatable {
     var piper = false
     var ttsEngine = "AVSpeech"
     var ollamaModel: String?
+    var comfy = false
+    var comfyLTX = false
+    var comfyWan = false
+    var comfyQwen = false
+    var comfyUrl = ComfyWorkflows.defaultURL
 
-    var anyImage: Bool { models.imageReady || automatic1111 || mlxImage }
+    var anyImage: Bool { models.imageReady || automatic1111 || mlxImage || comfyQwen }
     var anyLLM: Bool { ollama }
-    var anyVideo: Bool { models.videoReady }
+    var anyVideo: Bool { models.videoReady || comfyLTX || comfyWan }
 }
 
 actor LocalAIClient {
@@ -37,10 +42,12 @@ actor LocalAIClient {
             || isUp(URL(string: "http://127.0.0.1:9000/")!)
         async let kokoro = isUp(URL(string: "http://127.0.0.1:8880/v1/models")!)
             || isUp(URL(string: "http://127.0.0.1:8880/")!)
+        async let comfy = ComfyClient.shared.probe(url: UserDefaults.standard.string(forKey: "reelforge.comfyUrl"))
         let model = await ollama
         let kokoroUp = await kokoro
         let tts = kokoroUp ? "Kokoro" : "AVSpeech"
         let modelsDir = UserDefaults.standard.string(forKey: "reelforge.modelsDir")
+        let comfyStatus = await comfy
         return LocalAIStatus(
             ollama: model != nil,
             automatic1111: await a1111,
@@ -51,7 +58,12 @@ actor LocalAIClient {
             kokoro: kokoroUp,
             piper: false,
             ttsEngine: tts,
-            ollamaModel: model
+            ollamaModel: model,
+            comfy: comfyStatus.up,
+            comfyLTX: comfyStatus.ltx,
+            comfyWan: comfyStatus.wan,
+            comfyQwen: comfyStatus.qwen,
+            comfyUrl: comfyStatus.url
         )
     }
 

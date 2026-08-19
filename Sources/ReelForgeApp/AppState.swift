@@ -17,6 +17,14 @@ final class AppState: ObservableObject {
     @Published var allowCards = false
     @Published var captionStyleID: String = CaptionCatalog.resolve(id: UserDefaults.standard.string(forKey: "reelforge.captionStyleID"))
     @Published var useLocalAI = true
+    @Published var localMode: String = UserDefaults.standard.string(forKey: "reelforge.localMode") ?? LocalGenMode.stockFirst.rawValue
+    @Published var comfyUrl: String = UserDefaults.standard.string(forKey: "reelforge.comfyUrl") ?? ComfyWorkflows.defaultURL
+    @Published var ltxCkpt: String = UserDefaults.standard.string(forKey: "reelforge.ltxCkpt") ?? ComfyWorkflows.defaultModels["ltxCkpt"] ?? ""
+    @Published var ltxLora: String = UserDefaults.standard.string(forKey: "reelforge.ltxLora") ?? ComfyWorkflows.defaultModels["ltxLora"] ?? ""
+    @Published var wanCkpt: String = UserDefaults.standard.string(forKey: "reelforge.wanCkpt") ?? ComfyWorkflows.defaultModels["wanCkpt"] ?? ""
+    @Published var wanLora: String = UserDefaults.standard.string(forKey: "reelforge.wanLora") ?? ComfyWorkflows.defaultModels["wanLora"] ?? ""
+    @Published var qwenCkpt: String = UserDefaults.standard.string(forKey: "reelforge.qwenCkpt") ?? ComfyWorkflows.defaultModels["qwenCkpt"] ?? ""
+    @Published var qwenLora: String = UserDefaults.standard.string(forKey: "reelforge.qwenLora") ?? ComfyWorkflows.defaultModels["qwenLora"] ?? ""
     @Published var burnCaptions = true
     @Published var exportSRT = true
     @Published var voiceIdentifier: String?
@@ -90,6 +98,7 @@ final class AppState: ObservableObject {
     }
 
     init() {
+        ComfyClient.persistDefaultsIfNeeded()
         loadPresets()
         channelKit = ChannelStore.load()
         applyChannelDefaults()
@@ -194,6 +203,8 @@ final class AppState: ObservableObject {
             usePexels: usePexels,
             usePixabay: usePixabay,
             useLocalAI: useLocalAI,
+            localMode: localMode,
+            comfyUrl: comfyUrl,
             burnCaptions: burnCaptions,
             exportSRT: exportSRT,
             unsplashKey: KeychainStore.unsplashAccessKey,
@@ -402,6 +413,17 @@ final class AppState: ObservableObject {
 
     func persistCaptionStyle() {
         UserDefaults.standard.set(captionStyleID, forKey: "reelforge.captionStyleID")
+    }
+
+    func persistComfySettings() {
+        UserDefaults.standard.set(localMode, forKey: "reelforge.localMode")
+        UserDefaults.standard.set(comfyUrl, forKey: "reelforge.comfyUrl")
+        UserDefaults.standard.set(ltxCkpt, forKey: "reelforge.ltxCkpt")
+        UserDefaults.standard.set(ltxLora, forKey: "reelforge.ltxLora")
+        UserDefaults.standard.set(wanCkpt, forKey: "reelforge.wanCkpt")
+        UserDefaults.standard.set(wanLora, forKey: "reelforge.wanLora")
+        UserDefaults.standard.set(qwenCkpt, forKey: "reelforge.qwenCkpt")
+        UserDefaults.standard.set(qwenLora, forKey: "reelforge.qwenLora")
     }
 
     func applyChannelDefaults() {

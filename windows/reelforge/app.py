@@ -83,6 +83,13 @@ def get_models() -> dict:
     return available(settings.get("modelsDir") or None)
 
 
+@app.get("/api/comfy")
+def comfy_status() -> dict:
+    from reelforge import comfy
+    settings = load_settings()
+    return comfy.probe(settings.get("comfyUrl"))
+
+
 @app.post("/api/models")
 def post_models(payload: dict) -> dict:
     if "modelsDir" in payload:

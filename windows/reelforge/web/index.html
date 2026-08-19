@@ -110,12 +110,18 @@
       <label class="toggle"><input type="checkbox" id="use-pixabay" checked /> Pixabay stock video</label>
       <label class="toggle"><input type="checkbox" id="use-unsplash" /> Unsplash stills (manual only, off by default)</label>
       <label class="toggle"><input type="checkbox" id="use-local" checked /> Use Ollama if available</label>
-      <label class="toggle"><input type="checkbox" id="use-local-models" checked /> Use Ready local models (LTX / Qwen)</label>
+      <label class="toggle"><input type="checkbox" id="use-local-models" checked /> Use local gen when ComfyUI is up</label>
+      <label>Local gen mode</label>
+      <select id="local-mode">
+        <option value="stock-first">Stock first (Pexels, then LTX hook)</option>
+        <option value="local-fast">Local Fast (1 LTX hook + Qwen stills)</option>
+        <option value="local-quality">Local Quality (Wan hook + 1–2 beats, Qwen rest)</option>
+      </select>
       <label class="toggle"><input type="checkbox" id="burn" checked /> Burn captions</label>
       <label class="toggle"><input type="checkbox" id="srt" checked /> Export sidecar SRT</label>
       <div class="cards-warn" id="cards-warn" hidden>
         <strong>Cards, not a real video.</strong>
-        No Pexels or Pixabay key and no Ready weights. Accept will block unless you check cards ok.
+        No Pexels or Pixabay key, no local files, and ComfyUI is down. Accept will block unless you check cards ok.
       </div>
       <label class="toggle"><input type="checkbox" id="allow-cards" /> Cards ok (slide-deck export)</label>
 
@@ -146,8 +152,32 @@
       <label>Imported music folder</label>
       <input id="music-folder" placeholder="C:\\Users\\you\\Music\\beds" />
       <p class="muted">Hook always opens. Logo watermark only after 1.5s. Music is bundled beds or your folder — never CapCut/TikTok tracks. Preferred TTS: Kokoro-FastAPI at http://127.0.0.1:8880/v1/audio/speech.</p>
+      <div class="kicker">ComfyUI sidecar</div>
+      <p class="muted">Talks to ComfyUI already running on this PC at 127.0.0.1:8188. Filenames are what Comfy already sees — not E:\\ paths. No new weights are downloaded.</p>
+      <label>ComfyUI URL</label>
+      <input id="comfy-url" placeholder="http://127.0.0.1:8188" />
+      <label>Local gen mode</label>
+      <select id="settings-local-mode">
+        <option value="stock-first">Stock first</option>
+        <option value="local-fast">Local Fast</option>
+        <option value="local-quality">Local Quality</option>
+      </select>
+      <div class="chips" id="comfy-chips"></div>
+      <button class="ghost" id="scan-comfy" type="button">Probe ComfyUI</button>
+      <label>LTX checkpoint filename</label>
+      <input id="ltx-ckpt" placeholder="ltx-2.3-22b-distilled.safetensors" />
+      <label>LTX LoRA filename</label>
+      <input id="ltx-lora" placeholder="ltx-2.3-22b-distilled-lora-384.safetensors" />
+      <label>Wan UNET filename</label>
+      <input id="wan-ckpt" placeholder="wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors" />
+      <label>Wan LightX2V LoRA</label>
+      <input id="wan-lora" placeholder="lightx2v_T2V_14B_cfg_step_distill_v2.safetensors" />
+      <label>Qwen Image UNET</label>
+      <input id="qwen-ckpt" placeholder="qwen_image_fp8_e4m3fn.safetensors" />
+      <label>Qwen Lightning LoRA</label>
+      <input id="qwen-lora" placeholder="Qwen-Image-Lightning-8steps-V1.0.safetensors" />
       <div class="kicker">Model Manager</div>
-      <p class="muted">Creator/Studio optional. Point at weights you already have. ReelForge runs LTX and Qwen itself. The installer never bundles diffusion models.</p>
+      <p class="muted">Optional in-process fallback if ComfyUI is down. Point at weights you already have. The installer never bundles diffusion models.</p>
       <label>modelsDir</label>
       <input id="models-dir" placeholder="D:\\weights or a folder you already have" />
       <button class="ghost" id="scan-models" type="button">Scan now</button>

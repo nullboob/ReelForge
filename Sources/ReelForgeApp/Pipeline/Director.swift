@@ -15,6 +15,8 @@ struct GenerateRequest: Sendable {
     var usePexels: Bool
     var usePixabay: Bool
     var useLocalAI: Bool
+    var localMode: String
+    var comfyUrl: String
     var burnCaptions: Bool
     var exportSRT: Bool
     var unsplashKey: String?
@@ -223,7 +225,7 @@ final class Director: @unchecked Sendable {
         try ProjectStore.save(project)
 
         try Task.checkCancellation()
-        await emit(.footage, "Pexels / Pixabay first, then in-app LTX/Qwen if Ready, then cards")
+        await emit(.footage, "User files, stock, then ComfyUI if up")
         let footage = await footageService.gather(
             beats: storyboard.beats,
             preset: request.preset,
@@ -237,6 +239,8 @@ final class Director: @unchecked Sendable {
             usePexels: request.usePexels,
             usePixabay: request.usePixabay,
             useLocalAI: request.useLocalAI,
+            localMode: request.localMode,
+            comfyUrl: request.comfyUrl,
             channelName: request.channel.name
         ) { detail in
             Task { await emit(.footage, detail, extra: 0.05) }
@@ -255,7 +259,7 @@ final class Director: @unchecked Sendable {
         try Task.checkCancellation()
         await emit(.music, "Original-safe bed, ducked 8–12 dB under VO")
         let musicURL = assetsDir.appendingPathComponent("music.wav")
-        let musicSource = try resolveMusic(channel: request.channel, preset: request.preset, to: musicURL)
+        let musicSource = try await resolveMusic(channel: request.channel, preset: request.preset, to: musicURL, useLocalAI: request.useLocalAI)
         project.assets.removeAll { $0.kind == .music }
         project.assets.append(AssetRef(id: "music", kind: .music, relativePath: "music.wav"))
         completed.append(.music)
@@ -291,12 +295,23 @@ final class Director: @unchecked Sendable {
                 beatID: beatID
             ))
         }
+        for (beatID, assignment) in footage.assignments {
+            guard let credit = assignment.credit else { continue }
+            ledger.append(LicenseEntry(
+                id: assignment.asset.id,
+                kind: "visual",
+                source: assignment.asset.id,
+                license: "Generated in-app",
+                credit: credit,
+                beatID: beatID
+            ))
+        }
         ledger.append(LicenseEntry(
             id: "music",
             kind: "audio",
             source: musicSource,
-            license: musicSource == "user-folder" ? "User imported" : "Original-safe bundled bed",
-            credit: musicSource == "user-folder" ? "Imported music folder" : "ReelForge \(request.preset.music.mood.rawValue) bed"
+            license: musicSource == "user-folder" ? "User imported" : (musicSource == "ace-step" ? "Generated in-app" : "Original-safe bundled bed"),
+            credit: musicSource == "user-folder" ? "Imported music folder" : (musicSource == "ace-step" ? "ACE-Step local" : "ReelForge \(request.preset.music.mood.rawValue) bed")
         ))
         ledger.append(LicenseEntry(
             id: "voice",
@@ -509,7 +524,7 @@ final class Director: @unchecked Sendable {
         return joined.replacingOccurrences(of: ", ", with: ", … ")
     }
 
-    private func resolveMusic(channel: ChannelKit, preset: Preset, to url: URL) throws -> String {
+    private func resolveMusic(channel: ChannelKit, preset: Preset, to url: URL, useLocalAI: Bool) async throws -> String {
         if let folder = channel.musicFolderPath, !folder.isEmpty {
             let dir = URL(fileURLWithPath: folder)
             let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
@@ -521,6 +536,9 @@ final class Director: @unchecked Sendable {
                 try FileManager.default.copyItem(at: pick, to: url)
                 return "user-folder"
             }
+        }
+        if useLocalAI, await ACEStepClient.shared.generateBed(mood: preset.music.mood.rawValue, bpm: preset.music.bpm, to: url) {
+            return "ace-step"
         }
         try MusicBedSynthesizer.writeLoop(mood: preset.music.mood, bpm: preset.music.bpm, to: url)
         return "bundled-bed"

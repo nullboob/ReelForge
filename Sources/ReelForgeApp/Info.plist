@@ -27,7 +27,7 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>ReelForge talks to local Ollama, Kokoro-FastAPI, and optional in-app model inference on this Mac.</string>
+	<string>ReelForge talks to local Ollama, Kokoro-FastAPI, ComfyUI at 127.0.0.1:8188, and optional in-app model inference on this Mac.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

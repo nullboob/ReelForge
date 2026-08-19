@@ -18,6 +18,7 @@ struct SettingsView: View {
                 Spacer()
                 Button("Done") {
                     persistKeys()
+                    state.persistComfySettings()
                     state.persistChannel()
                     state.applyChannelDefaults()
                     state.showSettings = false
@@ -29,6 +30,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     keysSection
                     channelSection
+                    comfySection
                     modelManagerSection
                     servicesSection
                     attributionSection
@@ -148,6 +150,8 @@ struct SettingsView: View {
             statusRow("Kokoro-82M", state.localStatus.kokoro, "http://127.0.0.1:8880")
             statusRow("AVSpeech", true, "fallback, always available")
             statusRow("Ollama", state.localStatus.ollama, state.localStatus.ollamaModel ?? "http://127.0.0.1:11434")
+            statusRow("ComfyUI", state.localStatus.comfy, state.localStatus.comfyUrl)
+            statusRow("ACE-Step", state.localStatus.aceStep, "http://127.0.0.1:7865")
             statusRow("Local whisper", state.localStatus.whisper, "http://127.0.0.1:9000")
             Text("Preferred TTS: Kokoro-FastAPI at http://127.0.0.1:8880/v1/audio/speech. AVSpeech if Kokoro is down. Piper is not embedded (GPL-3.0). The core installer needs no diffusion weights.")
                 .font(.system(size: 11))
@@ -155,6 +159,50 @@ struct SettingsView: View {
             Button("Re-scan") { state.refreshStatus() }
                 .buttonStyle(GhostButtonStyle())
         }
+    }
+
+    private var comfySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionTitle("ComfyUI sidecar")
+            Text("Talks to ComfyUI already running on this Mac at 127.0.0.1:8188. Filenames are what Comfy already sees — not full disk paths. No new weights are downloaded.")
+                .font(.system(size: 11))
+                .foregroundStyle(RFTheme.muted)
+            TextField("http://127.0.0.1:8188", text: $state.comfyUrl)
+                .textFieldStyle(.roundedBorder)
+                .onChange(of: state.comfyUrl) { _, _ in state.persistComfySettings() }
+            Picker("Local gen mode", selection: $state.localMode) {
+                Text("Stock first").tag(LocalGenMode.stockFirst.rawValue)
+                Text("Local Fast").tag(LocalGenMode.localFast.rawValue)
+                Text("Local Quality").tag(LocalGenMode.localQuality.rawValue)
+            }
+            .onChange(of: state.localMode) { _, _ in state.persistComfySettings() }
+            HStack(spacing: 8) {
+                chip("Comfy", state.localStatus.comfy)
+                chip("LTX", state.localStatus.comfyLTX)
+                chip("Wan", state.localStatus.comfyWan)
+                chip("Qwen", state.localStatus.comfyQwen)
+            }
+            filenameField("LTX checkpoint filename", text: $state.ltxCkpt)
+            filenameField("LTX LoRA filename", text: $state.ltxLora)
+            filenameField("Wan UNET filename", text: $state.wanCkpt)
+            filenameField("Wan LightX2V LoRA", text: $state.wanLora)
+            filenameField("Qwen Image UNET", text: $state.qwenCkpt)
+            filenameField("Qwen Lightning LoRA", text: $state.qwenLora)
+            Button("Probe ComfyUI") {
+                state.persistComfySettings()
+                state.refreshStatus()
+            }
+            .buttonStyle(GhostButtonStyle())
+        }
+    }
+
+    private func chip(_ title: String, _ on: Bool) -> some View {
+        Text(title)
+            .font(.system(size: 10, weight: .medium))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background((on ? Color.green : RFTheme.muted).opacity(on ? 0.18 : 0.12), in: Capsule())
+            .foregroundStyle(on ? Color.green.opacity(0.9) : RFTheme.muted)
     }
 
     private var modelManagerSection: some View {
@@ -207,6 +255,15 @@ struct SettingsView: View {
         KeychainStore.set(pixabay, account: KeychainStore.pixabayAccount)
         KeychainStore.set(youtube, account: KeychainStore.youtubeAccount)
         state.refreshStatus()
+    }
+
+    private func filenameField(_ title: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+            TextField(title, text: text)
+                .textFieldStyle(.roundedBorder)
+        }
     }
 
     private func labeledField(_ title: String, text: Binding<String>) -> some View {

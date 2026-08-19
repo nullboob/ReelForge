@@ -16,7 +16,8 @@ let package = Package(
             resources: [
                 .copy("Resources/presets"),
                 .copy("Resources/caption-styles"),
-                .copy("Resources/fonts")
+                .copy("Resources/fonts"),
+                .copy("Resources/workflows")
             ]
         ),
         .testTarget(

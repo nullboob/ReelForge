@@ -201,17 +201,12 @@ def _have_module(name: str) -> bool:
 
 
 def _comfy_hatch(prompt: str, dest: Path, kind: str) -> bool:
-    """Hidden escape hatch. Not shown in the sold UI."""
-    base = (os.environ.get("REELFORGE_COMFY_URL") or "").rstrip("/")
-    if not base:
+    """Optional infer.py path into the Comfy sidecar when REELFORGE_COMFY_URL is set."""
+    if os.environ.get("REELFORGE_SKIP_COMFY") == "1":
         return False
-    try:
-        import httpx
-        with httpx.Client(timeout=4) as client:
-            response = client.get(f"{base}/system_stats")
-            if response.status_code >= 500:
-                return False
-        # Hatch exists so Rahul can point at his own box. We do not ship a sold workflow.
+    if not (os.environ.get("REELFORGE_COMFY_URL") or "").strip():
         return False
-    except Exception:
-        return False
+    from reelforge import comfy
+    if kind == "video":
+        return comfy.generate_video(prompt, dest)
+    return comfy.generate_image(prompt, dest)

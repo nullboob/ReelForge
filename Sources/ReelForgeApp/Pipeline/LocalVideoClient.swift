@@ -1,6 +1,6 @@
 import Foundation
 
-/// In-app LTX via official Python APIs. ComfyUI is not the sold path.
+/// In-app LTX via official Python APIs. ComfyUI is the preferred sidecar when :8188 is up.
 actor LocalVideoClient {
     static let shared = LocalVideoClient()
 

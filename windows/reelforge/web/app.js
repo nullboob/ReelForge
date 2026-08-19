@@ -38,13 +38,18 @@ function renderStatus(status) {
     chip(status.ollama ? "Ollama" : "LLM off", !!status.ollama),
     chip(status.ffmpeg ? "ffmpeg" : "No ffmpeg", !!status.ffmpeg),
     chip(status.kokoro ? "Kokoro" : "Kokoro off", !!status.kokoro),
+    chip(status.comfy?.up ? "Comfy" : "Comfy off", !!status.comfy?.up),
+    chip(status.comfy?.ltx ? "LTX" : "LTX off", !!status.comfy?.ltx),
+    chip(status.comfy?.wan ? "Wan" : "Wan off", !!status.comfy?.wan),
+    chip(status.comfy?.qwen ? "Qwen" : "Qwen off", !!status.comfy?.qwen),
   );
+  renderComfyChips(status.comfy);
   renderModelSlots(status.models);
   $("engine").textContent = `Engine: ${status.ttsEngine || "edge-tts"}`;
   state.styles = status.captionStyles || state.styles;
   state.stockReady = !!status.stockReady;
   renderStyles();
-  $("cards-warn").hidden = state.stockReady || !!status.anyReady;
+  $("cards-warn").hidden = state.stockReady || !!status.anyReady || !!status.comfy?.up;
   const voice = $("voice");
   voice.innerHTML = `<option value="">Auto (Kokoro → Windows)</option>`;
   for (const item of status.voices || []) {
@@ -94,6 +99,18 @@ function defaultStyleForPreset(presetID) {
 function styleSwatch(style) {
   const stops = (style.gradient && style.gradient.length ? style.gradient : [style.fill || "#fff", style.highlight || style.plateFill || "#111"]).join(",");
   return `linear-gradient(135deg, ${stops})`;
+}
+
+function renderComfyChips(comfy) {
+  const box = $("comfy-chips");
+  if (!box) return;
+  box.innerHTML = "";
+  box.append(
+    chip(comfy?.up ? "Comfy" : "Comfy off", !!comfy?.up),
+    chip(comfy?.ltx ? "LTX" : "LTX off", !!comfy?.ltx),
+    chip(comfy?.wan ? "Wan" : "Wan off", !!comfy?.wan),
+    chip(comfy?.qwen ? "Qwen" : "Qwen off", !!comfy?.qwen),
+  );
 }
 
 function renderModelSlots(catalog) {
@@ -188,6 +205,7 @@ function draftPayload() {
     seriesName: $("series").value,
     useLocalAI: $("use-local").checked,
     useLocalModels: $("use-local-models").checked,
+    localMode: $("local-mode").value || "stock-first",
     usePexels: $("use-pexels").checked,
     usePixabay: $("use-pixabay").checked,
     useUnsplash: $("use-unsplash").checked,
@@ -205,6 +223,7 @@ function deskPayload() {
     captions: [...$("desk-captions").querySelectorAll("input")].map((el) => el.value),
     captionStyleID: state.captionStyleID,
     allowCards: $("allow-cards").checked,
+    localMode: $("local-mode").value || "stock-first",
   };
 }
 
@@ -245,6 +264,8 @@ async function boot() {
   $("use-unsplash").checked = !!settings.useUnsplash;
   $("use-local").checked = settings.useLocalAI !== false;
   $("use-local-models").checked = settings.useLocalModels !== false;
+  $("local-mode").value = settings.localMode || "stock-first";
+  $("settings-local-mode").value = settings.localMode || "stock-first";
   $("allow-cards").checked = !!settings.allowCards;
   state.captionStyleID = settings.captionStyleID || defaultStyleForPreset(state.selected);
   $("pexels-key").value = settings.pexelsKey || "";
@@ -255,6 +276,13 @@ async function boot() {
   $("outro").checked = settings.channel?.outroEnabled !== false;
   $("music-folder").value = settings.channel?.musicFolderPath || "";
   $("models-dir").value = settings.modelsDir || "";
+  $("comfy-url").value = settings.comfyUrl || "http://127.0.0.1:8188";
+  $("ltx-ckpt").value = settings.ltxCkpt || "ltx-2.3-22b-distilled.safetensors";
+  $("ltx-lora").value = settings.ltxLora || "ltx-2.3-22b-distilled-lora-384.safetensors";
+  $("wan-ckpt").value = settings.wanCkpt || "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors";
+  $("wan-lora").value = settings.wanLora || "lightx2v_T2V_14B_cfg_step_distill_v2.safetensors";
+  $("qwen-ckpt").value = settings.qwenCkpt || "qwen_image_fp8_e4m3fn.safetensors";
+  $("qwen-lora").value = settings.qwenLora || "Qwen-Image-Lightning-8steps-V1.0.safetensors";
 }
 
 $("search").oninput = renderPresets;
@@ -282,6 +310,14 @@ $("save-settings").onclick = async () => {
       useUnsplash: $("use-unsplash").checked,
       useLocalAI: $("use-local").checked,
       useLocalModels: $("use-local-models").checked,
+      localMode: $("settings-local-mode").value || $("local-mode").value || "stock-first",
+      comfyUrl: $("comfy-url").value || "http://127.0.0.1:8188",
+      ltxCkpt: $("ltx-ckpt").value,
+      ltxLora: $("ltx-lora").value,
+      wanCkpt: $("wan-ckpt").value,
+      wanLora: $("wan-lora").value,
+      qwenCkpt: $("qwen-ckpt").value,
+      qwenLora: $("qwen-lora").value,
       modelsDir: $("models-dir").value,
       burnCaptions: $("burn").checked,
       exportSRT: $("srt").checked,
@@ -296,6 +332,19 @@ $("save-settings").onclick = async () => {
     }),
   });
   $("settings").hidden = true;
+};
+$("local-mode").onchange = () => {
+  $("settings-local-mode").value = $("local-mode").value;
+};
+$("settings-local-mode").onchange = () => {
+  $("local-mode").value = $("settings-local-mode").value;
+};
+$("scan-comfy").onclick = async () => {
+  await api("/api/settings", {
+    method: "POST",
+    body: JSON.stringify({ comfyUrl: $("comfy-url").value || "http://127.0.0.1:8188" }),
+  });
+  renderComfyChips(await api("/api/comfy"));
 };
 $("scan-models").onclick = async () => {
   const catalog = await api("/api/models", {
