@@ -44,6 +44,7 @@ def render_card(
     colors = preset.get("coverGradient") or ["#FF4D6D", "#2B0A12"]
     top = hex_to_rgb(colors[0])
     bottom = hex_to_rgb(colors[-1])
+    width, height = int(width), int(height)
     image = Image.new("RGB", (width, height), bottom)
     pixels = image.load()
     for y in range(height):
@@ -52,7 +53,6 @@ def render_card(
         for x in range(width):
             pixels[x, y] = color
     draw = ImageDraw.Draw(image)
-    draw.rectangle((0, 0, width, int(height * 0.22)), fill=(0, 0, 0))
     font_path = find_font(True)
     font_size = 72 if width < height else 64
     font = ImageFont.truetype(font_path, font_size) if font_path else ImageFont.load_default()

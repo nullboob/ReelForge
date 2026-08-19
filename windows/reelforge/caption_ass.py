@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from reelforge.captions import safe_area
+from reelforge.captions import exclusive_cues, safe_area
 from reelforge.cards import hex_to_rgb
 
 
@@ -74,7 +74,7 @@ def build_ass(
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ]
     animation = style.get("animation") or "karaoke-word"
-    for cue in cues:
+    for cue in exclusive_cues(cues):
         start = ass_time(cue["start"])
         end = ass_time(cue["start"] + cue["duration"])
         text = cue_text(cue, style, animation)
@@ -88,6 +88,25 @@ def build_ass(
         prefix = "{" + "".join(overrides) + "}"
         header.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{prefix}{text}")
     return "\n".join(header) + "\n"
+
+
+def dialogue_windows(ass_text: str) -> list[tuple[float, float, str]]:
+    windows: list[tuple[float, float, str]] = []
+    for line in ass_text.splitlines():
+        if not line.startswith("Dialogue:"):
+            continue
+        payload = line.split(":", 1)[1]
+        parts = payload.split(",", 9)
+        if len(parts) < 10:
+            continue
+        windows.append((_parse_ass_time(parts[1].strip()), _parse_ass_time(parts[2].strip()), parts[9]))
+    return windows
+
+
+def _parse_ass_time(value: str) -> float:
+    hours, minutes, rest = value.split(":")
+    seconds, cs = rest.split(".")
+    return int(hours) * 3600 + int(minutes) * 60 + int(seconds) + int(cs) / 100.0
 
 
 def _word_dicts(cue: dict[str, Any]) -> list[dict[str, Any]]:

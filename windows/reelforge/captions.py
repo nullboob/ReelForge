@@ -27,7 +27,11 @@ def cues_aligned_to_beats(script: dict[str, Any], storyboard: dict[str, Any], ma
     out: list[dict[str, Any]] = []
     for beat in storyboard["beats"]:
         text = beat["text"] or full_text(script)
-        for cue in align(text, beat["duration"], max_words):
+        if beat.get("role") == "hook":
+            slice_ = [hook_card(text, beat["duration"], max_words)]
+        else:
+            slice_ = align(text, beat["duration"], max_words)
+        for cue in slice_:
             cue["start"] += beat["start"]
             cue["words"] = [
                 {**word, "start": word["start"] + beat["start"]}
@@ -36,7 +40,25 @@ def cues_aligned_to_beats(script: dict[str, Any], storyboard: dict[str, Any], ma
             out.append(cue)
     for index, cue in enumerate(out):
         cue["id"] = f"cue-{index}"
-    return out
+    return exclusive_cues(out)
+
+
+def hook_card(text: str, duration: float, max_words: int) -> dict[str, Any]:
+    """One clean hook card for the full hook hold — never two lines in the first 1.5s."""
+    words = tokenize(text)
+    card: list[str] = []
+    limit = max(1, min(max_words, 6))
+    for word in words:
+        card.append(word)
+        punct = word[-1] in ".!?" if word else False
+        if punct and len(card) >= 2:
+            break
+        if len(card) >= limit:
+            break
+    if not card:
+        card = ["Watch this"]
+    timed = time_cards([card], max(0.4, duration))
+    return timed[0]
 
 
 def tokenize(text: str) -> list[str]:
@@ -60,13 +82,18 @@ def pack(words: list[str], max_words: int) -> list[list[str]]:
 def time_cards(cards: list[list[str]], duration: float) -> list[dict[str, Any]]:
     weights = [float(max(1, len("".join(card)))) for card in cards]
     total = sum(weights) or 1.0
+    raw = [duration * (weight / total) for weight in weights]
     cursor = 0.0
     cues_out: list[dict[str, Any]] = []
     for index, card in enumerate(cards):
-        d = duration * (weights[index] / total)
-        d = max(0.28, d)
-        if index == len(cards) - 1:
-            d = max(0.28, duration - cursor)
+        remaining = len(cards) - index
+        leftover = duration - cursor
+        if remaining == 1:
+            d = leftover
+        else:
+            floor = 0.04 * (remaining - 1)
+            d = min(raw[index], max(0.04, leftover - floor))
+        d = max(0.04, d)
         words = word_timings(card, cursor, d)
         cues_out.append({
             "id": f"cue-{index}",
@@ -77,7 +104,47 @@ def time_cards(cards: list[list[str]], duration: float) -> list[dict[str, Any]]:
             "highlightWordIndex": min(len(card) - 1, 1) if len(card) > 2 else 0,
         })
         cursor += d
-    return cues_out
+    return exclusive_cues(cues_out)
+
+
+def exclusive_cues(cues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Cues replace each other. No two burned cards share [start, start+duration)."""
+    if not cues:
+        return []
+    ordered = sorted((dict(cue) for cue in cues), key=lambda cue: (float(cue.get("start") or 0), -float(cue.get("duration") or 0)))
+    out: list[dict[str, Any]] = []
+    for index, cue in enumerate(ordered):
+        start = float(cue.get("start") or 0)
+        end = start + max(0.04, float(cue.get("duration") or 0.04))
+        if index + 1 < len(ordered):
+            nxt = float(ordered[index + 1].get("start") or 0)
+            if nxt <= start:
+                ordered[index + 1]["start"] = start + 0.04
+                nxt = start + 0.04
+            end = min(end, nxt)
+        duration = max(0.04, end - start)
+        words = fit_words_into_window(cue.get("words") or [], start, duration)
+        if not words:
+            words = word_timings((cue.get("text") or "").split() or [""], start, duration)
+        next_cue = dict(cue)
+        next_cue["start"] = start
+        next_cue["duration"] = duration
+        next_cue["words"] = words
+        out.append(next_cue)
+    return out
+
+
+def cues_overlap(cues: list[dict[str, Any]], epsilon: float = 1e-4) -> list[tuple[str, str]]:
+    hits: list[tuple[str, str]] = []
+    for index, left in enumerate(cues):
+        left_start = float(left["start"])
+        left_end = left_start + float(left["duration"])
+        for right in cues[index + 1 :]:
+            right_start = float(right["start"])
+            right_end = right_start + float(right["duration"])
+            if left_start < right_end - epsilon and right_start < left_end - epsilon:
+                hits.append((left.get("id") or str(index), right.get("id") or ""))
+    return hits
 
 
 def word_timings(words: list[str], start: float, duration: float) -> list[dict[str, Any]]:
@@ -114,9 +181,24 @@ def stamp(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 
+def fit_words_into_window(words: list[dict[str, Any]], start: float, duration: float) -> list[dict[str, Any]]:
+    tokens = []
+    for word in words:
+        if isinstance(word, dict):
+            token = (word.get("word") or "").strip()
+            if token:
+                tokens.append(token)
+        elif str(word).strip():
+            tokens.append(str(word).strip())
+    if not tokens:
+        return []
+    return word_timings(tokens, start, duration)
+
+
 def apply_tts_words(cues: list[dict[str, Any]], tts_words: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep exclusive cue windows. Scale TTS word pacing inside each card — never restack."""
     if not tts_words:
-        return cues
+        return exclusive_cues(cues)
     cursor = 0
     out = []
     for cue in cues:
@@ -124,14 +206,12 @@ def apply_tts_words(cues: list[dict[str, Any]], tts_words: list[dict[str, Any]])
         slice_ = tts_words[cursor: cursor + count]
         cursor += count
         next_cue = dict(cue)
+        source = slice_ or cue.get("words") or []
+        next_cue["words"] = fit_words_into_window(source, float(cue["start"]), float(cue["duration"]))
         if slice_:
-            next_cue["start"] = float(slice_[0]["start"])
-            last = slice_[-1]
-            next_cue["duration"] = max(0.2, float(last["start"] + last["duration"]) - next_cue["start"])
-            next_cue["words"] = slice_
-            next_cue["text"] = " ".join(w.get("word") or "" for w in slice_)
+            next_cue["text"] = " ".join(w.get("word") or "" for w in slice_ if w.get("word"))
         out.append(next_cue)
-    return out
+    return exclusive_cues(out)
 
 
 def safe_area(width: float, height: float) -> tuple[float, float, float, float]:

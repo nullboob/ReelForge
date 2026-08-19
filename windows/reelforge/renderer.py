@@ -7,7 +7,7 @@ from typing import Any
 from reelforge import caption_ass
 from reelforge import caption_png
 from reelforge import caption_styles
-from reelforge.captions import safe_area, srt_string
+from reelforge.captions import exclusive_cues, safe_area, srt_string
 from reelforge.cards import render_card, render_thumbnail
 from reelforge.paths import fonts_dir
 from reelforge.presets import duck_linear, pixel_size
@@ -98,6 +98,7 @@ def compose(
     if burn_captions and captions:
         if on_progress:
             on_progress("Burning karaoke captions")
+        captions = exclusive_cues(captions)
         captioned = burn_captions_layer(silent, pictured, captions, style, width, height, work, channel.get("primaryHex") or "#FF4D6D", vf)
     elif vf:
         run_ffmpeg(
@@ -223,21 +224,30 @@ def burn_png(
 ) -> None:
     font = caption_styles.font_path(style)
     overlays: list[tuple[Path, float, float]] = []
+    captions = exclusive_cues(captions)
     word_budget = sum(max(1, len(cue.get("words") or [])) for cue in captions)
     per_word = word_budget <= 36 and (style.get("animation") or "") in {"karaoke-word", "pop-scale", "karaoke-fill", "gradient-sweep"}
     for index, cue in enumerate(captions):
+        cue_end = float(cue["start"]) + float(cue["duration"])
         words = cue.get("words") or []
         if per_word and words:
             for word_index, word in enumerate(words):
                 png = work / f"cap-{index}-{word_index}.png"
                 caption_png.render_cue_png(cue, style, png, (width, height), font, primary_hex, active_word=word_index)
                 start = float(word.get("start") or cue["start"])
-                end = start + max(0.08, float(word.get("duration") or 0.18))
-                overlays.append((png, start, end))
+                end = start + max(0.04, float(word.get("duration") or 0.12))
+                if word_index + 1 < len(words):
+                    end = min(end, float(words[word_index + 1].get("start") or end))
+                end = min(end, cue_end)
+                overlays.append((png, start, max(start + 0.04, end)))
         else:
             png = work / f"cap-{index}.png"
             caption_png.render_cue_png(cue, style, png, (width, height), font, primary_hex)
-            overlays.append((png, float(cue["start"]), float(cue["start"]) + float(cue["duration"])))
+            overlays.append((png, float(cue["start"]), cue_end))
+    for index in range(len(overlays) - 1):
+        png, start, end = overlays[index]
+        nxt = overlays[index + 1][1]
+        overlays[index] = (png, start, min(end, nxt))
 
     args: list[str] = ["-i", silent.name]
     for png, _, _ in overlays:
@@ -266,29 +276,54 @@ def burn_png(
     )
 
 
+def even(value: int) -> int:
+    return int(value) - (int(value) % 2)
+
+
+def cover_vf(width: int, height: int, ken_burns: bool = False, duration: float = 1.0, zoom_pulse: bool = False) -> str:
+    """Pad-to-cover: fill WxH with no letterbox bars. Never use pad-to-fit."""
+    w, h = even(width), even(height)
+    cover = (
+        f"scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,"
+        f"crop={w}:{h},setsar=1"
+    )
+    if ken_burns:
+        zoom_w, zoom_h = even(int(w * 1.16)), even(int(h * 1.16))
+        dur = max(0.4, duration)
+        return (
+            f"scale={zoom_w}:{zoom_h}:force_original_aspect_ratio=increase:force_divisible_by=2,"
+            f"crop={zoom_w}:{zoom_h},"
+            f"crop={w}:{h}:'((in_w-out_w)*t/{dur:.3f})':'((in_h-out_h)*t/{dur:.3f}*0.45)',"
+            "setsar=1,fps=30,format=yuv420p"
+        )
+    if zoom_pulse:
+        zoom_w, zoom_h = even(int(w * 1.12)), even(int(h * 1.12))
+        dur = max(0.4, duration)
+        return (
+            f"scale={zoom_w}:{zoom_h}:force_original_aspect_ratio=increase:force_divisible_by=2,"
+            f"crop={zoom_w}:{zoom_h},"
+            f"crop={w}:{h}:"
+            f"'(in_w-out_w)/2+((in_w-out_w)/2)*sin(2*PI*t/{max(dur, 2):.3f})':"
+            f"'(in_h-out_h)/2',"
+            "setsar=1,fps=30,format=yuv420p"
+        )
+    return f"{cover},fps=30,format=yuv420p"
+
+
 def write_still_clip(image: Path, dest: Path, duration: float, width: int, height: int, work: Path, ken_burns: bool = False) -> None:
     src = image.name if image.parent == work else ffpath(image)
     dur = max(0.4, duration)
-    if ken_burns:
-        vf = (
-            f"scale={width * 2}:{height * 2}:force_original_aspect_ratio=increase,"
-            f"crop={width * 2}:{height * 2},"
-            f"scale={int(width * 1.16)}:{int(height * 1.16)},"
-            f"crop={width}:{height}:'((in_w-out_w)*t/{dur:.3f})':'((in_h-out_h)*t/{dur:.3f}*0.45)',"
-            "fps=30,format=yuv420p"
-        )
-    else:
-        vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},fps=30,format=yuv420p"
     run_ffmpeg(
         [
             "-loop", "1",
             "-i", src,
             "-t", f"{dur:.3f}",
-            "-vf", vf,
+            "-vf", cover_vf(width, height, ken_burns=ken_burns, duration=dur),
             "-an",
             "-c:v", "libx264",
             "-crf", "18",
             "-pix_fmt", "yuv420p",
+            "-s", f"{even(width)}x{even(height)}",
             dest.name,
         ],
         work,
@@ -300,27 +335,17 @@ def write_video_clip(source: Path, dest: Path, duration: float, width: int, heig
     if source.resolve() != copied.resolve():
         shutil.copy2(source, copied)
     dur = max(0.4, duration)
-    if zoom_pulse:
-        vf = (
-            f"scale={int(width * 1.12)}:{int(height * 1.12)}:force_original_aspect_ratio=increase,"
-            f"crop={int(width * 1.12)}:{int(height * 1.12)},"
-            f"crop={width}:{height}:"
-            f"'(in_w-out_w)/2+((in_w-out_w)/2)*sin(2*PI*t/{max(dur, 2):.3f})':"
-            f"'(in_h-out_h)/2',"
-            "fps=30,format=yuv420p"
-        )
-    else:
-        vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},fps=30,format=yuv420p"
     run_ffmpeg(
         [
             "-stream_loop", "-1",
             "-i", copied.name,
             "-t", f"{dur:.3f}",
-            "-vf", vf,
+            "-vf", cover_vf(width, height, zoom_pulse=zoom_pulse, duration=dur),
             "-an",
             "-c:v", "libx264",
             "-crf", "18",
             "-pix_fmt", "yuv420p",
+            "-s", f"{even(width)}x{even(height)}",
             dest.name,
         ],
         work,

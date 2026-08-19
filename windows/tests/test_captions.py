@@ -4,7 +4,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from reelforge.captions import align, cues, safe_area, srt_string
+from reelforge.captions import align, apply_tts_words, cues, cues_overlap, exclusive_cues, safe_area, srt_string
 from reelforge.presets import get_preset, max_caption_words
 from reelforge.publish import thumbnail_headline, write_pack
 from reelforge.script import write
@@ -70,6 +70,14 @@ class CaptionTests(unittest.TestCase):
         for cue in packed:
             self.assertGreaterEqual(cue["start"], -0.001)
             self.assertLessEqual(cue["start"] + cue["duration"], board["duration"] + 0.15)
+        self.assertEqual(cues_overlap(packed), [])
+        hook = board["beats"][0]
+        self.assertEqual(hook["role"], "hook")
+        first = packed[0]
+        self.assertAlmostEqual(first["start"], hook["start"], delta=0.02)
+        self.assertGreaterEqual(first["duration"], min(1.48, hook["duration"] - 0.05))
+        self.assertLessEqual(len(first["text"].split()), 6)
+        self.assertFalse("." in first["text"].rstrip(".") and first["text"].count(".") > 1)
 
 
 if __name__ == "__main__":
