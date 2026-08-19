@@ -3,10 +3,9 @@ uvicorn==0.34.2
 pywebview==5.4
 httpx==0.28.1
 pillow==11.2.1
-edge-tts==7.0.1
-pyttsx3==2.98
 python-multipart==0.0.20
 
 # Optional Studio extras — install yourself. Never pulled in CI and never vendored:
 #   torch, diffusers, ltx-pipelines, imageio
+#   edge-tts is a user-installed CLI only (LGPL + TOS). Do not vendor it or Piper/espeak-ng.
 # The sold core installer ships with zero diffusion weights.

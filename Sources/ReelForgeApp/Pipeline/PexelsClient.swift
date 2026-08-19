@@ -40,7 +40,7 @@ actor PexelsClient {
             let id = video["id"] as? Int ?? 0
             return id > 0 && !excluding.contains(id)
         }
-        guard let first = unused.randomElement() ?? unused.first ?? videos.first else { return nil }
+        guard let first = unused.randomElement() ?? unused.first else { return nil }
 
         let files = (first["video_files"] as? [[String: Any]]) ?? []
         let preferred = files.first { ($0["quality"] as? String) == "hd" } ?? files.first

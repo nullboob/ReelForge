@@ -138,6 +138,11 @@ enum CompositionBuilder {
         renderSize: CGSize
     ) {
         let overlap = plan.overlap
+        let isOpen = clip.start < 0.05
+        if isOpen {
+            // Hook / t=0 never fades from black. Punch-in lives in the EDL one-encode.
+            return
+        }
         if overlap > 0, clip.transitionIn != .hardCut, time < clip.start + overlap {
             let p = max(0, min(1, (time - clip.start) / overlap))
             switch clip.transitionIn {

@@ -80,9 +80,33 @@ def emphasis_index(words: list[str]) -> int:
 
 
 def word_clock_cards(words: list[str], max_words: int, duration: float, max_seconds: float = 2.0) -> list[list[str]]:
-    capped = max(1, min(max_words, 3))
+    capped = max(1, min(max_words, 4))
     cards = pack(words, capped)
+    cards = prefer_two_to_four(cards, capped)
     return split_overlong(cards, duration, max_seconds)
+
+
+def prefer_two_to_four(cards: list[list[str]], max_words: int) -> list[list[str]]:
+    """2–4 words/page unless the style is single-word."""
+    if max_words <= 1 or not cards:
+        return cards
+    out = [list(card) for card in cards if card]
+    index = 0
+    while index < len(out):
+        if len(out[index]) == 1 and max_words >= 2:
+            if index > 0 and len(out[index - 1]) < max_words:
+                out[index - 1].extend(out[index])
+                out.pop(index)
+                continue
+            if index + 1 < len(out) and len(out[index + 1]) < max_words:
+                out[index + 1] = out[index] + out[index + 1]
+                out.pop(index)
+                continue
+            if index > 0 and len(out[index - 1]) >= 2:
+                stolen = out[index - 1].pop()
+                out[index] = [stolen] + out[index]
+        index += 1
+    return out
 
 
 def split_overlong(cards: list[list[str]], duration: float, max_seconds: float) -> list[list[str]]:
@@ -240,22 +264,13 @@ def fit_words_into_window(words: list[dict[str, Any]], start: float, duration: f
 
 
 def apply_tts_words(cues: list[dict[str, Any]], tts_words: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Keep exclusive cue windows. Scale TTS word pacing inside each card — never restack."""
-    if not tts_words:
-        return exclusive_cues(cues)
-    cursor = 0
-    out = []
-    for cue in cues:
-        count = max(1, len(cue.get("words") or cue.get("text", "").split()))
-        slice_ = tts_words[cursor: cursor + count]
-        cursor += count
-        next_cue = dict(cue)
-        source = slice_ or cue.get("words") or []
-        next_cue["words"] = fit_words_into_window(source, float(cue["start"]), float(cue["duration"]))
-        if slice_:
-            next_cue["text"] = " ".join(w.get("word") or "" for w in slice_ if w.get("word"))
-        out.append(next_cue)
-    return exclusive_cues(out)
+    """Map timed words onto SCRIPT card text. Never replace caption text with Whisper soup."""
+    return force_align_to_script(cues, tts_words)
+
+
+def force_align_to_script(cues: list[dict[str, Any]], timed_words: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    from reelforge.align import force_align_cues
+    return exclusive_cues(force_align_cues(cues, timed_words))
 
 
 def safe_area(width: float, height: float) -> tuple[float, float, float, float]:

@@ -157,7 +157,7 @@ final class Director: @unchecked Sendable {
         }
 
         try Task.checkCancellation()
-        await emit(.voice, request.voiceoverURL == nil ? "Kokoro, then Mac voice" : "Using your dropped voiceover")
+        await emit(.voice, request.voiceoverURL == nil ? "Kokoro-class VO (never AVSpeech)" : "Using your dropped voiceover")
         let voiceURL = assetsDir.appendingPathComponent("voice.wav")
         var voiceDuration: Double
         if let provided = request.voiceoverURL {
@@ -194,7 +194,7 @@ final class Director: @unchecked Sendable {
             } catch {
                 voiceDuration = speechService.estimateDuration(text: script.fullText)
                 try MusicBedSynthesizer.writeSilence(duration: voiceDuration, to: voiceURL)
-                project.warnings.append("Speech synthesis failed — music still plays and export continues.")
+                project.warnings.append("No Kokoro and no edge-tts CLI — export continues without a spoken VO. AVSpeech is not used.")
             }
         }
         project.assets.removeAll { $0.kind == .voiceover }
@@ -208,19 +208,18 @@ final class Director: @unchecked Sendable {
         try ProjectStore.save(project)
 
         try Task.checkCancellation()
-        await emit(.captions, "Keeping your accepted caption text")
-        if project.captions.isEmpty {
-            let captionResult = await captionService.cues(
-                script: script,
-                storyboard: storyboard,
-                preset: request.preset,
-                voiceURL: voiceURL,
-                allowLocalWhisper: request.useLocalAI,
-                captionStyleID: request.captionStyleID
-            )
-            project.captions = captionResult.cues
-            if let warning = captionResult.warning { project.warnings.append(warning) }
-        }
+        await emit(.captions, "Keeping accepted script text; aligning word times")
+        let captionResult = await captionService.cues(
+            script: script,
+            storyboard: storyboard,
+            preset: request.preset,
+            voiceURL: voiceURL,
+            allowLocalWhisper: request.useLocalAI,
+            captionStyleID: request.captionStyleID,
+            existing: project.captions
+        )
+        project.captions = captionResult.cues
+        if let warning = captionResult.warning { project.warnings.append(warning) }
         completed.append(.captions)
         try ProjectStore.save(project)
 
@@ -257,7 +256,7 @@ final class Director: @unchecked Sendable {
         try ProjectStore.save(project)
 
         try Task.checkCancellation()
-        await emit(.music, "Original-safe bed, ducked 8–12 dB under VO")
+        await emit(.music, "Original-safe bed, sidechain-ducked −18 dB under VO")
         let musicURL = assetsDir.appendingPathComponent("music.wav")
         let musicSource = try await resolveMusic(channel: request.channel, preset: request.preset, to: musicURL, useLocalAI: request.useLocalAI)
         project.assets.removeAll { $0.kind == .music }
@@ -316,15 +315,15 @@ final class Director: @unchecked Sendable {
         ledger.append(LicenseEntry(
             id: "voice",
             kind: "audio",
-            source: project.ttsEngine ?? "AVSpeech",
+            source: project.ttsEngine ?? "silence",
             license: "Generated voiceover",
-            credit: project.ttsEngine ?? "AVSpeech"
+            credit: project.ttsEngine ?? "silence"
         ))
         project.licenseLedger = ledger
         try ProjectStore.save(project)
 
         try Task.checkCancellation()
-        await emit(.compose, "Rendering Ken Burns clips, grade, and transitions")
+        await emit(.compose, "One-encode: cover, punch-in, grade, ass=, sidechaincompress")
         let assetsByBeat = Dictionary(uniqueKeysWithValues: footage.assignments.map { ($0.key, $0.value.asset) })
         var plan = TimelinePlanner.plan(
             storyboard: storyboard,
@@ -339,13 +338,61 @@ final class Director: @unchecked Sendable {
         )
         // Same .ass Windows burns with ffmpeg ass= — karaoke parity, never subtitles=.
         let assLook = CaptionCatalog.look(id: request.captionStyleID)
+        let assURL = assetsDir.appendingPathComponent("captions.ass")
         let assText = CaptionASS.build(cues: project.captions, look: assLook, width: plan.width, height: plan.height)
-        try assText.write(to: assetsDir.appendingPathComponent("captions.ass"), atomically: true, encoding: .utf8)
+        try assText.write(to: assURL, atomically: true, encoding: .utf8)
         // VO starts at 0 with the hook. No music-only or logo open.
+
+        var sources: [String: (path: String, kind: String, sourceID: String?)] = [:]
+        for (beatID, assignment) in footage.assignments {
+            let kind: String
+            switch assignment.asset.kind {
+            case .video: kind = "video"
+            case .image: kind = "image"
+            case .generatedCard: kind = "card"
+            default: kind = "card"
+            }
+            sources[beatID] = (assignment.fileURL.path, kind, assignment.asset.id)
+        }
+        let document = EditList.make(
+            beats: storyboard.beats,
+            sources: sources,
+            voicePath: voiceURL.path,
+            musicPath: musicURL.path,
+            duration: voiceDuration,
+            width: plan.width,
+            height: plan.height,
+            grade: request.preset.colorGrade,
+            grain: request.preset.footage.overlayGrain,
+            kenBurns: request.preset.footage.kenBurns,
+            zoomPulse: request.preset.footage.zoomPulse,
+            assPath: assURL.path,
+            captionStyleID: assLook.id,
+            captionRenderer: assLook.renderer
+        )
+        try document.write(to: assetsDir.appendingPathComponent("edl.json"))
+
+        var oneEncodeURL: URL?
+        if FFmpegFallback.isAvailable {
+            let dest = assetsDir.appendingPathComponent("one-encode.mp4")
+            do {
+                try EDLExporter.export(
+                    document,
+                    to: dest,
+                    workDir: assetsDir,
+                    fontsDir: CaptionCatalog.fontsDirectory()?.path ?? "",
+                    burnCaptions: request.burnCaptions && !project.captions.isEmpty
+                )
+                oneEncodeURL = dest
+            } catch {
+                project.warnings.append("One-encode missed — per-clip fallback still uses sidechain duck.")
+            }
+        }
 
         var renderedClips: [URL] = []
         let canvas = CGSize(width: plan.width, height: plan.height)
         let logo = ChannelStore.logoURL(for: request.channel).flatMap { ImageIO.loadCGImage(from: $0) }
+        if oneEncodeURL == nil {
         for (index, clip) in plan.clips.enumerated() {
             try Task.checkCancellation()
             await emit(.compose, "Composing beat \(index + 1)/\(plan.clips.count)", extra: 0.08)
@@ -417,6 +464,7 @@ final class Director: @unchecked Sendable {
             plan.clips[index].sourceKind = .video
             renderedClips.append(out)
         }
+        }
         completed.append(.compose)
 
         try Task.checkCancellation()
@@ -467,15 +515,23 @@ final class Director: @unchecked Sendable {
         try ProjectStore.save(project)
 
         try Task.checkCancellation()
-        await emit(.export, "Writing H.264 MP4 to Movies/ReelForge")
-        let built = try await CompositionBuilder.build(plan: plan, workDir: assetsDir)
+        await emit(.export, "Writing H.264 yuv420p +faststart MP4")
         let exportURL = try ProjectStore.exportURL(presetID: request.preset.id, topic: request.topic)
-        try await VideoExporter.export(
-            built: built,
-            to: exportURL,
-            fallbackClips: renderedClips,
-            fallbackAudio: [voiceURL, musicURL]
-        )
+        if let one = oneEncodeURL {
+            if FileManager.default.fileExists(atPath: exportURL.path) {
+                try? FileManager.default.removeItem(at: exportURL)
+            }
+            try FileManager.default.createDirectory(at: exportURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: one, to: exportURL)
+        } else {
+            let built = try await CompositionBuilder.build(plan: plan, workDir: assetsDir)
+            try await VideoExporter.export(
+                built: built,
+                to: exportURL,
+                fallbackClips: renderedClips,
+                fallbackAudio: [voiceURL, musicURL]
+            )
+        }
         project.exportPath = exportURL.path
         var copiedThumbs: [String] = []
         let exportBase = exportURL.deletingPathExtension()

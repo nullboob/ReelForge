@@ -41,7 +41,7 @@ actor PixabayClient {
             let id = hit["id"] as? Int ?? 0
             return id > 0 && !excluding.contains(id)
         }
-        guard let first = unused.first ?? hits.first else { return nil }
+        guard let first = unused.first else { return nil }
         let videos = first["videos"] as? [String: Any] ?? [:]
         let preferred = (videos["large"] as? [String: Any])
             ?? (videos["medium"] as? [String: Any])

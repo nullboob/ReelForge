@@ -83,7 +83,7 @@ struct Inspector: View {
                         .font(.system(size: 11))
                         .foregroundStyle(RFTheme.gold)
                     Picker("Voice", selection: voiceBinding) {
-                        Text("Auto (Kokoro → Mac)").tag(Optional<String>.none)
+                        Text("Auto (Kokoro → edge-tts CLI)").tag(Optional<String>.none)
                         ForEach(SpeechService.allVoices()) { voice in
                             Text(voice.name).tag(Optional(voice.id))
                         }

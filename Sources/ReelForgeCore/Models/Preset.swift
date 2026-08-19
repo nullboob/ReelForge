@@ -123,9 +123,9 @@ public struct MusicStyle: Codable, Equatable, Sendable {
         self.duckDb = duckDb
     }
 
-    /// Duck 8–12 dB under VO. Louder than −8 or quieter than −12 gets clamped.
+    /// Sidechain uses −18 dB under speech and −8 dB in gaps. This clamp is leftover volume fallback only.
     public var clampedDuckDb: Double {
-        min(-8, max(-12, duckDb))
+        min(-8, max(-18, duckDb))
     }
 
     public var duckLinear: Double {

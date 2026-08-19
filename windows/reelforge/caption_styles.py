@@ -68,4 +68,4 @@ def font_path(style: dict[str, Any]) -> Path | None:
 def max_words(style: dict[str, Any], preset_id: str, requested: int) -> int:
     _ = preset_id
     cap = int(style.get("maxWords") or requested or 3)
-    return max(1, min(cap, 3))
+    return max(1, min(cap, 4))

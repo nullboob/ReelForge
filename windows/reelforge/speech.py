@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import sys
 import wave
 from pathlib import Path
 
@@ -43,13 +42,9 @@ def synthesize(text: str, dest: Path, voice_identifier: str | None = None, speed
         if duration:
             return duration, "Kokoro", []
 
-    timed = _edge_tts(spoken, dest)
+    timed = _edge_tts_cli(spoken, dest)
     if timed:
-        return timed[0], "edge-tts", timed[1]
-
-    duration = _sapi(spoken, dest, speed)
-    if duration:
-        return duration, "SAPI", []
+        return timed[0], "edge-tts-cli", timed[1]
 
     write_silence(dest, estimate_duration(spoken))
     return estimate_duration(spoken), "silence", []
@@ -68,6 +63,10 @@ def probe_kokoro() -> bool:
     except Exception:
         return False
     return False
+
+
+def probe_edge_tts_cli() -> bool:
+    return shutil.which("edge-tts") is not None
 
 
 def probe_ollama() -> str | None:
@@ -107,84 +106,40 @@ def _kokoro(text: str, dest: Path, voice: str, speed: float) -> float | None:
     return None
 
 
-def _sapi(text: str, dest: Path, speed: float) -> float | None:
-    if sys.platform != "win32":
-        return None
-    try:
-        import pyttsx3
-    except Exception:
-        return None
-    try:
-        engine = pyttsx3.init()
-        engine.setProperty("rate", int(180 * max(0.7, min(1.4, speed))))
-        tmp = dest.with_suffix(".sapi.wav")
-        engine.save_to_file(text, str(tmp))
-        engine.runAndWait()
-        if tmp.exists() and tmp.stat().st_size > 200:
-            if dest.exists():
-                dest.unlink()
-            tmp.replace(dest)
-            return wav_duration(dest) or estimate_duration(text)
-    except Exception:
-        return None
-    return None
-
-
-def _edge_tts(text: str, dest: Path) -> tuple[float, list[dict]] | None:
+def _edge_tts_cli(text: str, dest: Path) -> tuple[float, list[dict]] | None:
+    """User-installed edge-tts CLI only. Do not import or vendor the package."""
     if os.environ.get("REELFORGE_DISABLE_EDGE_TTS") == "1":
         return None
-    try:
-        import asyncio
-        import edge_tts
-    except Exception:
+    binary = shutil.which("edge-tts")
+    if not binary:
         return None
-
-    async def run() -> list[dict]:
-        communicate = edge_tts.Communicate(text, "en-US-JennyNeural")
-        words: list[dict] = []
-        audio = bytearray()
-        async for chunk in communicate.stream():
-            kind = chunk.get("type")
-            if kind == "audio":
-                audio.extend(chunk.get("data") or b"")
-            elif kind == "WordBoundary":
-                words.append({
-                    "word": chunk.get("text") or "",
-                    "start": float(chunk.get("offset") or 0) / 10_000_000,
-                    "duration": float(chunk.get("duration") or 0) / 10_000_000,
-                })
-        if len(audio) > 200:
-            dest.write_bytes(bytes(audio))
-        return words
-
-    try:
-        words = asyncio.run(run())
-        if dest.exists() and dest.stat().st_size > 200:
-            duration = wav_duration(dest)
-            if duration is None:
-                duration = _transcode_to_wav(dest) or estimate_duration(text)
-            return duration, words
-    except Exception:
+    tmp = dest.with_suffix(".edge.mp3")
+    result = subprocess.run(
+        [binary, "--voice", "en-US-JennyNeural", "--text", text, "--write-media", str(tmp)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or not tmp.exists() or tmp.stat().st_size < 200:
+        tmp.unlink(missing_ok=True)
         return None
+    duration = _transcode_to_wav(tmp, dest) or estimate_duration(text)
+    tmp.unlink(missing_ok=True)
+    if dest.exists() and dest.stat().st_size > 200:
+        return duration, []
     return None
 
 
-def _transcode_to_wav(dest: Path) -> float | None:
+def _transcode_to_wav(src: Path, dest: Path) -> float | None:
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         return None
-    tmp = dest.with_suffix(".edge.mp3")
-    dest.replace(tmp)
     result = subprocess.run(
-        [ffmpeg, "-hide_banner", "-y", "-i", str(tmp), "-ac", "1", "-ar", str(SAMPLE_RATE), str(dest)],
+        [ffmpeg, "-hide_banner", "-y", "-i", str(src), "-ac", "1", "-ar", str(SAMPLE_RATE), str(dest)],
         capture_output=True,
         text=True,
     )
     if result.returncode != 0 or not dest.exists():
-        if tmp.exists() and not dest.exists():
-            tmp.replace(dest)
         return None
-    tmp.unlink(missing_ok=True)
     return wav_duration(dest)
 
 

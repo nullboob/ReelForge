@@ -100,6 +100,7 @@ def gather(
             "This will look like a slide deck unless you opt into cards."
         )
 
+    used_clip_ids: set[int] = set()
     card_count = 0
     for index, beat in enumerate(beats):
         if on_progress:
@@ -115,13 +116,14 @@ def gather(
             continue
 
         query = specific_query(beat.get("unsplashQuery") or beat.get("text") or "")
-        excluding = load_blacklist(channel_name)
+        excluding = load_blacklist(channel_name) | used_clip_ids
         portrait = aspect != "16:9"
         try_stock_first = mode == "stock-first"
 
         if try_stock_first and _assign_stock(
             beat, index, query, work, aspect, portrait, excluding, channel_name,
             use_pexels, pexels_key, use_pixabay, pixabay_key, assignments, ledger,
+            used_clip_ids,
         ):
             continue
         if use_local_models and _assign_comfy(
@@ -132,6 +134,7 @@ def gather(
         if not try_stock_first and _assign_stock(
             beat, index, query, work, aspect, portrait, excluding, channel_name,
             use_pexels, pexels_key, use_pixabay, pixabay_key, assignments, ledger,
+            used_clip_ids,
         ):
             continue
 
@@ -151,6 +154,7 @@ def gather(
 def _assign_stock(
     beat, index, query, work, aspect, portrait, excluding, channel_name,
     use_pexels, pexels_key, use_pixabay, pixabay_key, assignments, ledger,
+    used_clip_ids,
 ) -> bool:
     if use_pexels and pexels_key:
         clip = search_pexels(query, pexels_key, portrait, index, excluding)
@@ -158,6 +162,7 @@ def _assign_stock(
             dest_video = work / f"pexels-{index}.mp4"
             if download(clip["url"], dest_video):
                 remember_clip(clip["id"], channel_name)
+                used_clip_ids.add(int(clip["id"]))
                 assignments[beat["id"]] = {"kind": "video", "path": str(dest_video), "source": "pexels", "clipID": str(clip["id"])}
                 ledger.append(_entry(
                     f"pexels-{clip['id']}", "visual", "pexels", "Pexels License",
@@ -170,6 +175,7 @@ def _assign_stock(
             dest_video = work / f"pixabay-{index}.mp4"
             if download(clip["url"], dest_video):
                 remember_clip(clip["id"], channel_name)
+                used_clip_ids.add(int(clip["id"]))
                 assignments[beat["id"]] = {"kind": "video", "path": str(dest_video), "source": "pixabay", "clipID": str(clip["id"])}
                 ledger.append(_entry(
                     f"pixabay-{clip['id']}", "visual", "pixabay", "Pixabay License",
@@ -219,6 +225,11 @@ def _assign_comfy(
     return False
 
 
+def first_unused(items: list[dict[str, Any]], excluding: set[int]) -> dict[str, Any] | None:
+    unused = [item for item in items if int(item.get("id") or 0) not in excluding]
+    return unused[0] if unused else None
+
+
 def search_pexels(query: str, key: str, portrait: bool, index: int, excluding: set[int]) -> dict[str, Any] | None:
     params = urlencode({
         "query": query,
@@ -233,8 +244,7 @@ def search_pexels(query: str, key: str, portrait: bool, index: int, excluding: s
             if response.status_code != 200:
                 return None
             videos = response.json().get("videos") or []
-            unused = [video for video in videos if int(video.get("id") or 0) not in excluding]
-            pick = (unused or videos or [None])[0]
+            pick = first_unused(videos, excluding)
             if not pick:
                 return None
             files = pick.get("video_files") or []
@@ -268,8 +278,7 @@ def search_pixabay(query: str, key: str, portrait: bool, index: int, excluding: 
             if response.status_code != 200:
                 return None
             hits = response.json().get("hits") or []
-            unused = [hit for hit in hits if int(hit.get("id") or 0) not in excluding]
-            pick = (unused or hits or [None])[0]
+            pick = first_unused(hits, excluding)
             if not pick:
                 return None
             videos = pick.get("videos") or {}

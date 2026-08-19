@@ -50,7 +50,7 @@ final class PublishPackTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(safe.y / 1920, 0.17)
         XCTAssertGreaterThanOrEqual((1920 - (safe.y + safe.height)) / 1920, 0.11)
         XCTAssertLessThanOrEqual((safe.x + safe.width) / 1080, 0.83)
-        XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 12), 3)
+        XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 12), 4)
         XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 2), 2)
     }
 
@@ -58,7 +58,7 @@ final class PublishPackTests: XCTestCase {
         let quiet = MusicStyle(mood: .pulse, bpm: 120, duckDb: -20)
         let loud = MusicStyle(mood: .pulse, bpm: 120, duckDb: -4)
         let mid = MusicStyle(mood: .pulse, bpm: 120, duckDb: -10)
-        XCTAssertEqual(quiet.clampedDuckDb, -12, accuracy: 0.001)
+        XCTAssertEqual(quiet.clampedDuckDb, -18, accuracy: 0.001)
         XCTAssertEqual(loud.clampedDuckDb, -8, accuracy: 0.001)
         XCTAssertEqual(mid.clampedDuckDb, -10, accuracy: 0.001)
         XCTAssertGreaterThan(quiet.duckLinear, 0)

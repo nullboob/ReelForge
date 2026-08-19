@@ -5,7 +5,7 @@ final class CaptionSplitTests: XCTestCase {
     func testPacksToMaxWordsAndCoversDuration() {
         let text = "one two three four five six seven eight nine"
         let cues = CaptionSplitter.align(text: text, duration: 9, maxWordsPerCard: 4)
-        XCTAssertTrue(cues.allSatisfy { $0.text.split(separator: " ").count <= 3 })
+        XCTAssertTrue(cues.allSatisfy { $0.text.split(separator: " ").count <= 4 })
         XCTAssertTrue(cues.allSatisfy { $0.duration <= 2.05 })
         XCTAssertEqual(cues.first?.start ?? -1, 0, accuracy: 0.001)
         XCTAssertEqual(cues.last?.end ?? 0, 9, accuracy: 0.08)

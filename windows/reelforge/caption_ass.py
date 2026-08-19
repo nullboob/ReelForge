@@ -55,6 +55,8 @@ def build_ass(
         back = primary_hex or "#FF4D6D"
     back = back or "#111111"
     size = int(style.get("size") or 64)
+    if "arial" in font_name.lower():
+        font_name = "Montserrat ExtraBold"
     italic = -1 if "italic" in (style.get("font") or "").lower() else 0
     cx = width / 2
     cy = caption_center_y(height)

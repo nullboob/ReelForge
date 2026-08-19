@@ -23,9 +23,9 @@ public enum CaptionSafeArea {
         height * ((700.0 + 1360.0) / 2.0 / 1920.0)
     }
 
-    /// Research word clock: 1–3 words per card.
+    /// Research word clock: 2–4 words per card (1 only for single-word styles).
     public static func maxWords(forPresetID id: String, requested: Int) -> Int {
         _ = id
-        return max(1, min(requested, 3))
+        return max(1, min(requested, 4))
     }
 }

@@ -57,7 +57,7 @@ class Director:
             "ollama": speech.probe_ollama(),
             "ffmpeg": bool(__import__("shutil").which("ffmpeg")),
             "pexels": bool(settings.get("pexelsKey")),
-            "ttsEngine": "Kokoro" if speech.probe_kokoro() else "edge-tts",
+            "ttsEngine": "Kokoro" if speech.probe_kokoro() else ("edge-tts-cli" if speech.probe_edge_tts_cli() else "no VO"),
             "pixabay": bool(settings.get("pixabayKey")),
             "stockReady": bool(settings.get("pexelsKey") or settings.get("pixabayKey")),
             "captionStyles": caption_styles.all_styles(),
@@ -207,7 +207,7 @@ class Director:
         channel = settings.get("channel") or {}
         work = work_dir() / self.project["id"]
         work.mkdir(parents=True, exist_ok=True)
-        self._emit("Kokoro, then Windows voice", 0.35)
+        self._emit("Kokoro-class VO (never SAPI)", 0.35)
         spoken = " ".join(scriptlib.spoken_lines(script)).replace(", ", ", … ")
         voice_path = work / "voice.wav"
         duration, engine, tts_words = speech.synthesize(
@@ -217,8 +217,12 @@ class Director:
             float(payload.get("voiceSpeed") or settings.get("voiceSpeed") or 1.0),
         )
         self.project["ttsEngine"] = engine
+        if engine == "silence":
+            warnings = list(self.project.get("warnings") or [])
+            warnings.append("No Kokoro at :8880 and no edge-tts CLI — export continues without a spoken VO. SAPI is not used.")
+            self.project["warnings"] = warnings
         if tts_words:
-            cues = captionlib.apply_tts_words(cues, tts_words)
+            cues = captionlib.force_align_to_script(cues, tts_words)
             self.project["captions"] = cues
         if abs(duration - board["duration"]) > 0.8:
             board = boardlib.rescale(board, duration)
@@ -255,7 +259,7 @@ class Director:
                 "if you really want a type-card export."
             )
 
-        self._emit("Original-safe bed, ducked 8–12 dB under VO", 0.62)
+        self._emit("Sidechain duck −18 dB under speech, −8 dB in gaps", 0.62)
         music_path = work / "music.wav"
         music_source = self._resolve_music(channel, preset, music_path, duration)
         ledger.append({
@@ -282,7 +286,7 @@ class Director:
         })
         self.project["licenseLedger"] = ledger
 
-        self._emit("Writing H.264 MP4 to Videos/ReelForge", 0.72)
+        self._emit("One-encode EDL → H.264 +faststart", 0.72)
         stem = publish.slugify(publish.make_title(self.project["topic"], script, self.project.get("seriesName")))
         folder = videos_dir() / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{stem[:40]}"
         result = renderer.compose(

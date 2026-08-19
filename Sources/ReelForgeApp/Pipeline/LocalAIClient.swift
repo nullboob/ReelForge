@@ -9,7 +9,7 @@ struct LocalAIStatus: Equatable {
     var whisper = false
     var kokoro = false
     var piper = false
-    var ttsEngine = "AVSpeech"
+    var ttsEngine = "no VO"
     var ollamaModel: String?
     var comfy = false
     var comfyLTX = false
@@ -45,7 +45,7 @@ actor LocalAIClient {
         async let comfy = ComfyClient.shared.probe(url: UserDefaults.standard.string(forKey: "reelforge.comfyUrl"))
         let model = await ollama
         let kokoroUp = await kokoro
-        let tts = kokoroUp ? "Kokoro" : "AVSpeech"
+        let tts = kokoroUp ? "Kokoro" : (SpeechService.edgeTTSCLI() != nil ? "edge-tts-cli" : "no VO")
         let modelsDir = UserDefaults.standard.string(forKey: "reelforge.modelsDir")
         let comfyStatus = await comfy
         return LocalAIStatus(

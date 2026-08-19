@@ -15,7 +15,7 @@ class CaptionTests(unittest.TestCase):
     def test_packs_to_max_words(self):
         text = "one two three four five six seven eight nine"
         packed = align(text, 9, 4)
-        self.assertTrue(all(len(cue["text"].split()) <= 3 for cue in packed))
+        self.assertTrue(all(len(cue["text"].split()) <= 4 for cue in packed))
         self.assertTrue(all(cue["duration"] <= 2.05 for cue in packed))
         self.assertAlmostEqual(packed[0]["start"], 0)
         self.assertAlmostEqual(packed[-1]["start"] + packed[-1]["duration"], 9, delta=0.08)
@@ -24,7 +24,7 @@ class CaptionTests(unittest.TestCase):
     def test_viral_hook_is_1_to_3_words(self):
         preset = get_preset("viral-hook")
         self.assertEqual(max_caption_words(preset), 3)
-        self.assertEqual(max_caption_words({**preset, "captionStyle": {**preset["captionStyle"], "maxWordsPerCard": 12}}), 3)
+        self.assertEqual(max_caption_words({**preset, "captionStyle": {**preset["captionStyle"], "maxWordsPerCard": 12}}), 4)
         self.assertEqual(max_caption_words({**preset, "captionStyle": {**preset["captionStyle"], "maxWordsPerCard": 1}}), 1)
 
     def test_safe_area_clears_shorts_chrome(self):

@@ -12,6 +12,14 @@ public enum BeatRole: Codable, Equatable, Sendable {
         case .cta: return "CTA"
         }
     }
+
+    public var edlName: String {
+        switch self {
+        case .hook: return "hook"
+        case .body: return "body"
+        case .cta: return "cta"
+        }
+    }
 }
 
 public struct Beat: Codable, Identifiable, Equatable, Sendable {

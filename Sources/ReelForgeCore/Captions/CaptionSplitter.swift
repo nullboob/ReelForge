@@ -123,10 +123,96 @@ public enum CaptionSplitter {
     }
 
     private static func wordClockCards(words: [String], maxWords: Int, duration: Double, maxSeconds: Double = 2.0) -> [[String]] {
-        let capped = max(1, min(maxWords, 3))
+        let capped = max(1, min(maxWords, 4))
         var cards = pack(words: words, maxWords: capped)
+        cards = preferTwoToFour(cards, maxWords: capped)
         cards = splitOverlong(cards, duration: duration, maxSeconds: maxSeconds)
         return cards
+    }
+
+    private static func preferTwoToFour(_ cards: [[String]], maxWords: Int) -> [[String]] {
+        guard maxWords > 1, !cards.isEmpty else { return cards }
+        var out = cards.filter { !$0.isEmpty }
+        var index = 0
+        while index < out.count {
+            if out[index].count == 1 && maxWords >= 2 {
+                if index > 0 && out[index - 1].count < maxWords {
+                    out[index - 1].append(contentsOf: out[index])
+                    out.remove(at: index)
+                    continue
+                }
+                if index + 1 < out.count && out[index + 1].count < maxWords {
+                    out[index + 1] = out[index] + out[index + 1]
+                    out.remove(at: index)
+                    continue
+                }
+                if index > 0 && out[index - 1].count >= 2 {
+                    let stolen = out[index - 1].removeLast()
+                    out[index] = [stolen] + out[index]
+                }
+            }
+            index += 1
+        }
+        return out
+    }
+
+    public static func forceAlign(_ cues: [CaptionCue], timed: [WordTiming]) -> [CaptionCue] {
+        var tokens: [String] = []
+        var spans: [(Int, Int)] = []
+        for cue in cues {
+            let words = cue.words.map(\.word).filter { !$0.isEmpty }
+            let slice = words.isEmpty ? cue.text.split(whereSeparator: \.isWhitespace).map(String.init) : words
+            let start = tokens.count
+            tokens.append(contentsOf: slice)
+            spans.append((start, tokens.count))
+        }
+        let mapped = alignTokens(tokens, timed: timed)
+        var out: [CaptionCue] = []
+        for (cue, span) in zip(cues, spans) {
+            var next = cue
+            let slice = Array(mapped[span.0..<min(span.1, mapped.count)])
+            if !slice.isEmpty {
+                let windowStart = cue.start
+                let windowEnd = cue.end
+                next.words = slice.map { word in
+                    let start = min(max(word.start, windowStart), windowEnd - 0.04)
+                    let end = min(windowEnd, start + max(0.04, word.duration))
+                    return WordTiming(word: word.word, start: start, duration: max(0.04, end - start))
+                }
+            }
+            next.text = cue.text
+            out.append(next)
+        }
+        return exclusive(out)
+    }
+
+    public static func alignTokens(_ script: [String], timed: [WordTiming]) -> [WordTiming] {
+        guard !script.isEmpty else { return [] }
+        var cursor = 0
+        var lastEnd = timed.first?.start ?? 0
+        var aligned: [WordTiming] = []
+        for token in script {
+            let needle = token.lowercased().filter { $0.isLetter || $0.isNumber }
+            var match: WordTiming?
+            var look = cursor
+            while look < timed.count && look - cursor < 6 {
+                let other = timed[look].word.lowercased().filter { $0.isLetter || $0.isNumber }
+                if !needle.isEmpty && other == needle {
+                    match = timed[look]
+                    cursor = look + 1
+                    break
+                }
+                look += 1
+            }
+            if let match {
+                aligned.append(WordTiming(word: token, start: match.start, duration: max(0.04, match.duration)))
+                lastEnd = match.start + max(0.04, match.duration)
+            } else {
+                aligned.append(WordTiming(word: token, start: lastEnd, duration: 0.12))
+                lastEnd += 0.12
+            }
+        }
+        return aligned
     }
 
     private static func splitOverlong(_ cards: [[String]], duration: Double, maxSeconds: Double) -> [[String]] {

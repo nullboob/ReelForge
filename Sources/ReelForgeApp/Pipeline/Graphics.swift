@@ -21,7 +21,8 @@ enum HexColor {
 
 enum AppFont {
     static func make(name: String, size: CGFloat, weight: String) -> NSFont {
-        if let font = NSFont(name: name, size: size) { return font }
+        let resolved = name.localizedCaseInsensitiveContains("Arial") ? "Montserrat ExtraBold" : name
+        if let font = NSFont(name: resolved, size: size) { return font }
         let mapped: NSFont.Weight
         switch weight.lowercased() {
         case "heavy", "black": mapped = .heavy

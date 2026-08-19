@@ -1,24 +1,24 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
 
 from reelforge.captions import safe_area
+from reelforge.paths import fonts_dir
 
 
 def find_font(bold: bool = True) -> str:
-    windir = Path(os.environ.get("WINDIR", r"C:\Windows"))
-    candidates = [
-        windir / "Fonts" / ("segoeuib.ttf" if bold else "segoeui.ttf"),
-        windir / "Fonts" / "arialbd.ttf",
-        windir / "Fonts" / "arial.ttf",
-        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
-        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
-    ]
-    for path in candidates:
+    _ = bold
+    for name in (
+        "Montserrat-ExtraBold.ttf",
+        "Anton-Regular.ttf",
+        "ArchivoBlack-Regular.ttf",
+        "Inter-Bold.ttf",
+        "Oswald-Bold.ttf",
+    ):
+        path = fonts_dir() / name
         if path.exists():
             return str(path)
     return ""

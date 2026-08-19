@@ -31,6 +31,7 @@ struct FootageService {
         var warnings: [String] = []
         let size = aspect.pixelSize
         let localMedia = localFiles.filter { isMedia($0) }
+        var usedClipIDs: Set<Int> = []
         let mode = FootageLadder.parseMode(localMode)
         let hasStockKey = (usePexels && pexelsKey != nil) || (usePixabay && pixabayKey != nil)
         let comfySettings = ComfyClient.storedSettings()
@@ -81,6 +82,7 @@ struct FootageService {
                 usePixabay: usePixabay,
                 assignments: &assignments,
                 attributions: &attributions,
+                usedClipIDs: &usedClipIDs,
                 onProgress: onProgress
             ) {
                 continue
@@ -116,6 +118,7 @@ struct FootageService {
                 usePixabay: usePixabay,
                 assignments: &assignments,
                 attributions: &attributions,
+                usedClipIDs: &usedClipIDs,
                 onProgress: onProgress
             ) {
                 continue
@@ -182,12 +185,13 @@ struct FootageService {
         usePixabay: Bool,
         assignments: inout [String: FootageAssignment],
         attributions: inout [UnsplashAttribution],
+        usedClipIDs: inout Set<Int>,
         onProgress: @MainActor @escaping (String) -> Void
     ) async -> Bool {
         if usePexels, let key = pexelsKey {
             let destVideo = workDir.appendingPathComponent("pexels-\(index).mp4")
             await onProgress("Searching Pexels video for beat \(index + 1)")
-            let banned = ClipBlacklist.load(channel: channelName ?? "")
+            let banned = ClipBlacklist.load(channel: channelName ?? "").union(usedClipIDs)
             if let clip = await PexelsClient.shared.search(
                 query: beat.unsplashQuery.isEmpty ? beat.text : beat.unsplashQuery,
                 accessKey: key,
@@ -196,6 +200,7 @@ struct FootageService {
                 excluding: banned
             ), await PexelsClient.shared.download(clip, to: destVideo) {
                 ClipBlacklist.remember(clip.id, channel: channelName ?? "")
+                usedClipIDs.insert(clip.id)
                 let attr = UnsplashAttribution(
                     source: "pexels",
                     photographer: clip.photographer,
@@ -215,7 +220,7 @@ struct FootageService {
         if usePixabay, let key = pixabayKey {
             let destVideo = workDir.appendingPathComponent("pixabay-\(index).mp4")
             await onProgress("Searching Pixabay video for beat \(index + 1)")
-            let banned = ClipBlacklist.load(channel: channelName ?? "")
+            let banned = ClipBlacklist.load(channel: channelName ?? "").union(usedClipIDs)
             if let clip = await PixabayClient.shared.search(
                 query: beat.unsplashQuery.isEmpty ? beat.text : beat.unsplashQuery,
                 accessKey: key,
@@ -224,6 +229,7 @@ struct FootageService {
                 excluding: banned
             ), await PixabayClient.shared.download(clip, to: destVideo) {
                 ClipBlacklist.remember(clip.id, channel: channelName ?? "")
+                usedClipIDs.insert(clip.id)
                 let attr = UnsplashAttribution(
                     source: "pixabay",
                     photographer: clip.user,

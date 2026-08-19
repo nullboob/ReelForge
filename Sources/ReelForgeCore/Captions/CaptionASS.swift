@@ -23,7 +23,10 @@ public enum CaptionASS {
         let italic = look.font.lowercased().contains("italic") ? -1 : 0
         let cx = Double(width) / 2
         let cy = CaptionSafeArea.captionCenterY(height: Double(height))
-        let font = fontName ?? look.font
+        var font = fontName ?? look.font
+        if font.localizedCaseInsensitiveContains("Arial") {
+            font = "Montserrat ExtraBold"
+        }
 
         var lines: [String] = [
             "[Script Info]",

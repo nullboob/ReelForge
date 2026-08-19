@@ -31,7 +31,7 @@ function renderStatus(status) {
   const box = $("chips");
   box.innerHTML = "";
   box.append(
-    chip(status.ttsEngine || "edge-tts", true),
+    chip(status.ttsEngine || "no VO", true),
     chip(status.anyReady ? "Models Ready" : "Core (no weights)", !!status.anyReady),
     chip(status.pexels ? "Pexels" : "No Pexels", !!status.pexels),
     chip(status.pixabay ? "Pixabay" : "No Pixabay", !!status.pixabay),
@@ -45,13 +45,13 @@ function renderStatus(status) {
   );
   renderComfyChips(status.comfy);
   renderModelSlots(status.models);
-  $("engine").textContent = `Engine: ${status.ttsEngine || "edge-tts"}`;
+  $("engine").textContent = `Engine: ${status.ttsEngine || "no VO"}`;
   state.styles = status.captionStyles || state.styles;
   state.stockReady = !!status.stockReady;
   renderStyles();
   $("cards-warn").hidden = state.stockReady || !!status.anyReady || !!status.comfy?.up;
   const voice = $("voice");
-  voice.innerHTML = `<option value="">Auto (Kokoro → Windows)</option>`;
+    voice.innerHTML = `<option value="">Auto (Kokoro → edge-tts CLI)</option>`;
   for (const item of status.voices || []) {
     const opt = document.createElement("option");
     opt.value = item.id;

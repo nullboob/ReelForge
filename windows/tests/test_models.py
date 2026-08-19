@@ -50,7 +50,7 @@ class ModelCatalogTests(unittest.TestCase):
 
     def test_core_requirements_do_not_vendor_diffusion(self):
         text = (Path(__file__).resolve().parents[1] / "requirements.txt").read_text(encoding="utf-8")
-        for banned in ("torch", "diffusers", "ltx-pipelines", "comfy"):
+        for banned in ("torch", "diffusers", "ltx-pipelines", "comfy", "edge-tts", "pyttsx3", "moviepy", "remotion"):
             self.assertNotIn(banned + "==", text.lower().replace("_", "-"))
             self.assertFalse(any(
                 line.strip().lower().startswith(banned) and not line.strip().startswith("#")

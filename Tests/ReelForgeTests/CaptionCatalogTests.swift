@@ -53,7 +53,7 @@ final class CaptionCatalogTests: XCTestCase {
         let band = CaptionSafeArea.captionBand(width: 1080, height: 1920)
         XCTAssertEqual(band.y, 700, accuracy: 1)
         XCTAssertEqual(band.y + band.height, 1360, accuracy: 1)
-        XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 12), 3)
+        XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 12), 4)
         XCTAssertEqual(CaptionSafeArea.maxWords(forPresetID: "viral-hook", requested: 1), 1)
         let cues = CaptionSplitter.align(text: "one two three four five six", duration: 9, maxWordsPerCard: 3)
         XCTAssertTrue(cues.allSatisfy { $0.text.split(separator: " ").count <= 3 })

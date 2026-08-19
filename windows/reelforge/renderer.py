@@ -7,10 +7,12 @@ from typing import Any
 from reelforge import caption_ass
 from reelforge import caption_png
 from reelforge import caption_styles
+from reelforge import edl as edllib
+from reelforge import encoder
 from reelforge.captions import exclusive_cues, safe_area, srt_string
 from reelforge.cards import render_card, render_thumbnail
 from reelforge.paths import fonts_dir
-from reelforge.presets import duck_linear, pixel_size
+from reelforge.presets import pixel_size
 from reelforge.publish import thumbnail_headline
 
 
@@ -58,87 +60,52 @@ def compose(
 ) -> dict[str, Any]:
     width, height = pixel_size(aspect)
     style = caption_style or caption_styles.style_by_id(caption_styles.default_for_preset(preset.get("id") or ""))
-    footage = preset.get("footage") or {}
-    ken_burns = bool(footage.get("kenBurns"))
-    zoom_pulse = bool(footage.get("zoomPulse"))
-    grain = bool(footage.get("overlayGrain"))
-    grade = preset.get("colorGrade") or {}
-    clips: list[Path] = []
+    captions = exclusive_cues(captions) if captions else []
     for index, beat in enumerate(storyboard["beats"]):
-        if on_progress:
-            on_progress(f"Composing beat {index + 1}/{len(storyboard['beats'])}")
         assignment = assignments.get(beat["id"]) or {}
-        clip = work / f"clip-{index}.mp4"
         source = Path(assignment.get("path") or "")
-        if assignment.get("kind") == "video" and source.exists():
-            write_video_clip(source, clip, beat["duration"], width, height, work, zoom_pulse=zoom_pulse)
-        else:
-            if not source.exists() or assignment.get("kind") not in {"image", "card"}:
-                source = work / f"beat-{index}.png"
-                render_card(beat["text"], source, (width, height), preset, channel.get("name") or "", watermark=beat["start"] >= 1.5)
-            write_still_clip(source, clip, beat["duration"], width, height, work, ken_burns=ken_burns)
-        if channel.get("logoPath") and beat["start"] >= 1.5 and Path(channel["logoPath"]).exists():
-            overlay_logo(clip, Path(channel["logoPath"]), width, height, work)
-        clips.append(clip)
+        if not source.exists():
+            source = work / f"beat-{index}.png"
+            render_card(beat["text"], source, (width, height), preset, channel.get("name") or "", watermark=beat["start"] >= 1.5)
+            assignment = {**assignment, "path": str(source), "kind": assignment.get("kind") or "card"}
+            assignments[beat["id"]] = assignment
 
-    concat_list = work / "concat.txt"
-    concat_list.write_text("".join(f"file '{ffpath(clip)}'\n" for clip in clips), encoding="utf-8")
-    silent = work / "picture.mp4"
-    try:
-        run_ffmpeg(["-f", "concat", "-safe", "0", "-i", concat_list.name, "-c", "copy", silent.name], work)
-    except RuntimeError:
-        run_ffmpeg(
-            ["-f", "concat", "-safe", "0", "-i", concat_list.name, "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", silent.name],
-            work,
-        )
-
-    pictured = work / "pictured.mp4"
-    vf = master_filters(grade, grain, width, height)
-    captioned = silent
+    ass_path = work / "captions.ass"
     if burn_captions and captions:
         if on_progress:
-            on_progress("Burning karaoke captions")
-        captions = exclusive_cues(captions)
-        captioned = burn_captions_layer(silent, pictured, captions, style, width, height, work, channel.get("primaryHex") or "#FF4D6D", vf)
-    elif vf:
-        run_ffmpeg(
-            ["-i", silent.name, "-vf", vf, "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-r", "30", pictured.name],
-            work,
-        )
-        captioned = pictured
+            on_progress("Writing pysubs2-style ASS karaoke")
+        font_file = caption_styles.font_path(style)
+        font_name = (font_file.stem if font_file else None) or style.get("font") or "Montserrat ExtraBold"
+        if "Arial" in font_name:
+            font_name = "Montserrat ExtraBold"
+        ass_path.write_text(caption_ass.build_ass(captions, style, width, height, font_name, channel.get("primaryHex") or "#FF4D6D"), encoding="utf-8")
 
-    if on_progress:
-        on_progress("Mixing voice and ducked music")
-    mixed = work / "mixed.mp4"
-    vol = max(0.18, min(0.40, duck_linear(preset)))
-    filter_complex = (
-        f"[1:a]aformat=sample_fmts=fltp:channel_layouts=stereo,volume=1.0[v];"
-        f"[2:a]aformat=sample_fmts=fltp:channel_layouts=stereo,volume={vol:.3f}[m];"
-        f"[v][m]amix=inputs=2:duration=first:normalize=0[a]"
+    document = edllib.build(
+        storyboard["beats"],
+        assignments,
+        voice_path,
+        music_path,
+        float(storyboard.get("duration") or 1),
+        width,
+        height,
+        preset,
+        ass_path,
+        style,
     )
-    run_ffmpeg(
-        [
-            "-i", captioned.name,
-            "-i", voice_path.name,
-            "-i", music_path.name,
-            "-filter_complex", filter_complex,
-            "-map", "0:v:0",
-            "-map", "[a]",
-            "-c:v", "libx264",
-            "-crf", "18",
-            "-pix_fmt", "yuv420p",
-            "-r", "30",
-            "-c:a", "aac",
-            "-b:a", "192k",
-            "-shortest",
-            mixed.name,
-        ],
-        work,
-    )
-
+    edllib.write(document, work / "edl.json")
     export_dir.mkdir(parents=True, exist_ok=True)
     mp4 = export_dir / f"{stem}.mp4"
-    shutil.copy2(mixed, mp4)
+    if on_progress:
+        on_progress("One-encode: cover, punch-in, grade, ass=, sidechaincompress")
+    try:
+        compose_from_edl(document, work, mp4, burn_captions=burn_captions and bool(captions), on_progress=on_progress)
+    except RuntimeError:
+        if on_progress:
+            on_progress("One-encode missed — per-clip fallback still uses sidechain duck")
+        _compose_legacy(
+            storyboard, preset, assignments, captions, voice_path, music_path, work, mp4,
+            width, height, style, channel, burn_captions,
+        )
 
     thumbs: list[str] = []
     headlines = [
@@ -167,12 +134,115 @@ def compose(
     }
 
 
+def compose_from_edl(document: dict[str, Any], work: Path, dest: Path, burn_captions: bool = True, on_progress=None) -> Path:
+    args: list[str] = []
+    for clip in document.get("clips") or []:
+        source = Path(clip.get("source") or "")
+        if not source.exists():
+            raise RuntimeError(f"EDL source missing: {source}")
+        src = source.name if source.parent == work else ffpath(source)
+        dur = max(0.4, float(clip.get("duration") or 0.4))
+        if clip.get("kind") in {"image", "card"}:
+            args += ["-loop", "1", "-t", f"{dur:.3f}", "-i", src]
+        else:
+            args += ["-stream_loop", "-1", "-t", f"{dur:.3f}", "-i", src]
+    voice = Path(document["voice"]["path"])
+    music = Path(document["music"]["path"])
+    args += ["-i", voice.name if voice.parent == work else ffpath(voice)]
+    args += ["-i", music.name if music.parent == work else ffpath(music)]
+    graph = edllib.filter_complex(document, ffpath(fonts_dir()), burn_captions)
+    if "fade=t=in" in graph and "black" in graph:
+        raise RuntimeError("Hook must never fade from black.")
+    args += [
+        "-filter_complex", graph,
+        "-map", "[vout]",
+        "-map", "[a]",
+        *encoder.video_args(),
+        "-r", str(int(document.get("fps") or 30)),
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-shortest",
+        dest.name if dest.parent == work else str(dest),
+    ]
+    run_ffmpeg(args, work)
+    if not dest.exists():
+        raise RuntimeError("One-encode did not write an MP4.")
+    return dest
+
+
+def mix_sidechain(picture: Path, voice: Path, music: Path, dest: Path, work: Path) -> None:
+    gap = edllib.gap_linear()
+    graph = (
+        f"[1:a]aformat=sample_fmts=fltp:channel_layouts=stereo[vo];"
+        f"[2:a]aformat=sample_fmts=fltp:channel_layouts=stereo,volume={gap:.4f}[bg];"
+        f"[bg][vo]sidechaincompress=threshold=0.02:ratio=8:attack=12:release=220:makeup=1[ducked];"
+        f"[vo][ducked]amix=inputs=2:duration=first:normalize=0[a]"
+    )
+    run_ffmpeg(
+        [
+            "-i", picture.name,
+            "-i", voice.name if voice.parent == work else ffpath(voice),
+            "-i", music.name if music.parent == work else ffpath(music),
+            "-filter_complex", graph,
+            "-map", "0:v:0",
+            "-map", "[a]",
+            *encoder.video_args(),
+            "-r", "30",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-shortest",
+            dest.name,
+        ],
+        work,
+    )
+
+
+def _compose_legacy(
+    storyboard, preset, assignments, captions, voice_path, music_path, work, mp4,
+    width, height, style, channel, burn_captions,
+) -> None:
+    footage = preset.get("footage") or {}
+    clips: list[Path] = []
+    for index, beat in enumerate(storyboard["beats"]):
+        assignment = assignments.get(beat["id"]) or {}
+        clip = work / f"clip-{index}.mp4"
+        source = Path(assignment.get("path") or "")
+        hook = beat.get("role") == "hook" or index == 0
+        if assignment.get("kind") == "video" and source.exists():
+            write_video_clip(source, clip, beat["duration"], width, height, work, zoom_pulse=bool(footage.get("zoomPulse")), hook=hook)
+        else:
+            if not source.exists():
+                source = work / f"beat-{index}.png"
+                render_card(beat["text"], source, (width, height), preset, channel.get("name") or "", watermark=beat["start"] >= 1.5)
+            write_still_clip(source, clip, beat["duration"], width, height, work, ken_burns=bool(footage.get("kenBurns")), hook=hook)
+        clips.append(clip)
+    concat_list = work / "concat.txt"
+    concat_list.write_text("".join(f"file '{ffpath(clip)}'\n" for clip in clips), encoding="utf-8")
+    silent = work / "picture.mp4"
+    run_ffmpeg(
+        ["-f", "concat", "-safe", "0", "-i", concat_list.name, "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", silent.name],
+        work,
+    )
+    pictured = work / "pictured.mp4"
+    vf = master_filters(preset.get("colorGrade") or {}, bool(footage.get("overlayGrain")), width, height)
+    captioned = silent
+    if burn_captions and captions:
+        captioned = burn_captions_layer(silent, pictured, captions, style, width, height, work, channel.get("primaryHex") or "#FF4D6D", vf)
+    elif vf:
+        run_ffmpeg(["-i", silent.name, "-vf", vf, *encoder.video_args(), "-r", "30", pictured.name], work)
+        captioned = pictured
+    mixed = work / "mixed.mp4"
+    mix_sidechain(captioned, voice_path, music_path, mixed, work)
+    shutil.copy2(mixed, mp4)
+
+
 def master_filters(grade: dict[str, Any], grain: bool, width: int, height: int) -> str:
     parts: list[str] = []
     contrast = float(grade.get("contrast") or 1.08)
     saturation = float(grade.get("saturation") or 1.12)
     brightness = float(grade.get("warmth") or 0) * 0.02
     parts.append(f"eq=contrast={contrast:.3f}:saturation={saturation:.3f}:brightness={brightness:.3f}")
+    parts.append("unsharp=5:5:0.6:5:5:0.0")
     if float(grade.get("vignette") or 0.35) > 0.05:
         parts.append("vignette=PI/5")
     if grain:
@@ -280,13 +350,19 @@ def even(value: int) -> int:
     return int(value) - (int(value) % 2)
 
 
-def cover_vf(width: int, height: int, ken_burns: bool = False, duration: float = 1.0, zoom_pulse: bool = False) -> str:
-    """Pad-to-cover: fill WxH with no letterbox bars. Never use pad-to-fit."""
+def cover_vf(width: int, height: int, ken_burns: bool = False, duration: float = 1.0, zoom_pulse: bool = False, hook: bool = False) -> str:
+    """Pad-to-cover: fill WxH with no letterbox bars. Never use pad-to-fit. Hook punch-in, never fade-from-black."""
     w, h = even(width), even(height)
     cover = (
         f"scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,"
         f"crop={w}:{h},setsar=1"
     )
+    if hook:
+        return (
+            f"{cover},"
+            f"zoompan=z='if(lt(on,45),1.12-0.12*on/45,1)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={w}x{h}:fps=30,"
+            "setsar=1,fps=30,format=yuv420p"
+        )
     if ken_burns:
         zoom_w, zoom_h = even(int(w * 1.16)), even(int(h * 1.16))
         dur = max(0.4, duration)
@@ -310,7 +386,7 @@ def cover_vf(width: int, height: int, ken_burns: bool = False, duration: float =
     return f"{cover},fps=30,format=yuv420p"
 
 
-def write_still_clip(image: Path, dest: Path, duration: float, width: int, height: int, work: Path, ken_burns: bool = False) -> None:
+def write_still_clip(image: Path, dest: Path, duration: float, width: int, height: int, work: Path, ken_burns: bool = False, hook: bool = False) -> None:
     src = image.name if image.parent == work else ffpath(image)
     dur = max(0.4, duration)
     run_ffmpeg(
@@ -318,7 +394,7 @@ def write_still_clip(image: Path, dest: Path, duration: float, width: int, heigh
             "-loop", "1",
             "-i", src,
             "-t", f"{dur:.3f}",
-            "-vf", cover_vf(width, height, ken_burns=ken_burns, duration=dur),
+            "-vf", cover_vf(width, height, ken_burns=ken_burns, duration=dur, hook=hook),
             "-an",
             "-c:v", "libx264",
             "-crf", "18",
@@ -330,7 +406,7 @@ def write_still_clip(image: Path, dest: Path, duration: float, width: int, heigh
     )
 
 
-def write_video_clip(source: Path, dest: Path, duration: float, width: int, height: int, work: Path, zoom_pulse: bool = False) -> None:
+def write_video_clip(source: Path, dest: Path, duration: float, width: int, height: int, work: Path, zoom_pulse: bool = False, hook: bool = False) -> None:
     copied = work / source.name
     if source.resolve() != copied.resolve():
         shutil.copy2(source, copied)
@@ -340,7 +416,7 @@ def write_video_clip(source: Path, dest: Path, duration: float, width: int, heig
             "-stream_loop", "-1",
             "-i", copied.name,
             "-t", f"{dur:.3f}",
-            "-vf", cover_vf(width, height, zoom_pulse=zoom_pulse, duration=dur),
+            "-vf", cover_vf(width, height, zoom_pulse=zoom_pulse, duration=dur, hook=hook),
             "-an",
             "-c:v", "libx264",
             "-crf", "18",

@@ -148,12 +148,12 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle("Local services")
             statusRow("Kokoro-82M", state.localStatus.kokoro, "http://127.0.0.1:8880")
-            statusRow("AVSpeech", true, "fallback, always available")
+            statusRow("edge-tts CLI", SpeechService.edgeTTSCLI() != nil, "user-installed, not vendored")
             statusRow("Ollama", state.localStatus.ollama, state.localStatus.ollamaModel ?? "http://127.0.0.1:11434")
             statusRow("ComfyUI", state.localStatus.comfy, state.localStatus.comfyUrl)
             statusRow("ACE-Step", state.localStatus.aceStep, "http://127.0.0.1:7865")
             statusRow("Local whisper", state.localStatus.whisper, "http://127.0.0.1:9000")
-            Text("Preferred TTS: Kokoro-FastAPI at http://127.0.0.1:8880/v1/audio/speech. AVSpeech if Kokoro is down. Piper is not embedded (GPL-3.0). The core installer needs no diffusion weights.")
+            Text("Preferred TTS: Kokoro-FastAPI at http://127.0.0.1:8880/v1/audio/speech. Then a user-installed edge-tts CLI. Never AVSpeech, SAPI, or vendored Piper/espeak. The core installer needs no diffusion weights.")
                 .font(.system(size: 11))
                 .foregroundStyle(RFTheme.muted)
             Button("Re-scan") { state.refreshStatus() }

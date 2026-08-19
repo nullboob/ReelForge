@@ -25,4 +25,9 @@ public enum StockQueryHygiene {
         }
         return raw
     }
+
+    /// Never immediately replay a clip id already used in this export.
+    public static func firstUnusedID(ids: [Int], excluding: Set<Int>) -> Int? {
+        ids.first { $0 > 0 && !excluding.contains($0) }
+    }
 }

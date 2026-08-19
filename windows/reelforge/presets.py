@@ -56,8 +56,8 @@ def pixel_size(aspect: str) -> tuple[int, int]:
 
 
 def clamped_duck_db(preset: dict[str, Any]) -> float:
-    raw = float(preset.get("music", {}).get("duckDb", -10))
-    return min(-8.0, max(-12.0, raw))
+    raw = float(preset.get("music", {}).get("duckDb", -18))
+    return min(-8.0, max(-18.0, raw))
 
 
 def duck_linear(preset: dict[str, Any]) -> float:
@@ -66,4 +66,4 @@ def duck_linear(preset: dict[str, Any]) -> float:
 
 def max_caption_words(preset: dict[str, Any]) -> int:
     requested = int(preset.get("captionStyle", {}).get("maxWordsPerCard", 3))
-    return max(1, min(requested, 3))
+    return max(1, min(requested, 4))
