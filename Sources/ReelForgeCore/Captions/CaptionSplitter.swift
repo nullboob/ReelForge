@@ -81,8 +81,7 @@ public enum CaptionSplitter {
             }
             let duration = max(0.04, end - cue.start)
             cue.duration = duration
-            let tokens = cue.words.map(\.word).filter { !$0.isEmpty }
-            cue.words = wordTimings(tokens.isEmpty ? cue.text.split(separator: " ").map(String.init) : tokens, start: cue.start, duration: duration)
+            cue.words = clampWords(cue.words, start: cue.start, duration: duration, text: cue.text)
             out.append(cue)
         }
         return out
@@ -286,6 +285,19 @@ public enum CaptionSplitter {
             cursor += held
         }
         return exclusive(cues)
+    }
+
+    private static func clampWords(_ words: [WordTiming], start: Double, duration: Double, text: String) -> [WordTiming] {
+        let windowEnd = start + duration
+        let kept = words.filter { !$0.word.isEmpty }
+        if kept.isEmpty {
+            return wordTimings(text.split(whereSeparator: \.isWhitespace).map(String.init), start: start, duration: duration)
+        }
+        return kept.map { word in
+            let wordStart = min(max(word.start, start), windowEnd - 0.04)
+            let wordEnd = min(windowEnd, wordStart + max(0.04, word.duration))
+            return WordTiming(word: word.word, start: wordStart, duration: max(0.04, wordEnd - wordStart))
+        }
     }
 
     private static func wordTimings(_ words: [String], start: Double, duration: Double) -> [WordTiming] {

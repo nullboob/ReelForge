@@ -226,7 +226,7 @@ def _assign_comfy(
 
 
 def first_unused(items: list[dict[str, Any]], excluding: set[int]) -> dict[str, Any] | None:
-    unused = [item for item in items if int(item.get("id") or 0) not in excluding]
+    unused = [item for item in items if int(item.get("id") or 0) > 0 and int(item.get("id") or 0) not in excluding]
     return unused[0] if unused else None
 
 

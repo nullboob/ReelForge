@@ -250,17 +250,26 @@ def stamp(seconds: float) -> str:
 
 
 def fit_words_into_window(words: list[dict[str, Any]], start: float, duration: float) -> list[dict[str, Any]]:
-    tokens = []
+    end = start + max(0.04, duration)
+    kept: list[dict[str, Any]] = []
     for word in words:
         if isinstance(word, dict):
             token = (word.get("word") or "").strip()
             if token:
-                tokens.append(token)
+                kept.append(word)
         elif str(word).strip():
-            tokens.append(str(word).strip())
-    if not tokens:
+            kept.append({"word": str(word).strip()})
+    if not kept:
         return []
-    return word_timings(tokens, start, duration)
+    if any(isinstance(word, dict) and word.get("start") is not None for word in kept):
+        fitted = []
+        for word in kept:
+            token = word.get("word") or ""
+            word_start = min(max(float(word.get("start") or start), start), end - 0.04)
+            word_end = min(end, word_start + max(0.04, float(word.get("duration") or 0.04)))
+            fitted.append({"word": token, "start": word_start, "duration": max(0.04, word_end - word_start)})
+        return fitted
+    return word_timings([word.get("word") if isinstance(word, dict) else str(word) for word in kept], start, duration)
 
 
 def apply_tts_words(cues: list[dict[str, Any]], tts_words: list[dict[str, Any]]) -> list[dict[str, Any]]:
