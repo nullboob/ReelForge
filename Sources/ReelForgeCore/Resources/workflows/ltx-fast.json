@@ -1,0 +1,49 @@
+{
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": { "ckpt_name": "{{CKPT}}" }
+  },
+  "2": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": { "model": ["1", 0], "lora_name": "{{LORA}}", "strength_model": 1.0 }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "{{PROMPT}}", "clip": ["1", 1] }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "{{NEGATIVE}}", "clip": ["1", 1] }
+  },
+  "5": {
+    "class_type": "EmptyLTXVLatentVideo",
+    "inputs": { "width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1 }
+  },
+  "6": {
+    "class_type": "LTXVConditioning",
+    "inputs": { "positive": ["3", 0], "negative": ["4", 0], "frame_rate": 24 }
+  },
+  "7": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": "{{SEED}}",
+      "steps": 8,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": ["2", 0],
+      "positive": ["6", 0],
+      "negative": ["6", 1],
+      "latent_image": ["5", 0]
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["7", 0], "vae": ["1", 2] }
+  },
+  "9": {
+    "class_type": "SaveVideo",
+    "inputs": { "filename_prefix": "reelforge-ltx", "images": ["8", 0], "fps": 24, "format": "mp4" }
+  }
+}

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ReelForge</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="mark"></span>
+      <strong>ReelForge</strong>
+      <span class="auto">AUTO</span>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="top-actions">
+      <button class="ghost" id="btn-new">New</button>
+      <button class="ghost" id="btn-settings">Settings</button>
+      <button class="ghost" id="btn-reveal" disabled>Export</button>
+    </div>
+  </header>
+
+  <main class="app">
+    <aside class="gallery">
+      <div class="kicker">Presets</div>
+      <input id="search" type="search" placeholder="Search styles" />
+      <div id="presets" class="preset-list"></div>
+    </aside>
+
+    <section class="preview">
+      <div class="stage" id="stage">
+        <div class="empty" id="empty">
+          <div class="spark">✦</div>
+          <h2>Type a topic, draft, then Accept</h2>
+          <p>The director writes a script. You accept it. Then we speak, caption, stock, and export a YouTube pack — not a silent firehose.</p>
+        </div>
+        <video id="player" controls playsinline hidden></video>
+      </div>
+      <div class="progress" id="progress-wrap">
+        <div class="bar"><i id="bar"></i></div>
+        <div id="progress-detail">Type a topic, then accept the script before we render.</div>
+      </div>
+      <div class="desk" id="desk" hidden>
+        <div class="desk-head">
+          <strong>Script desk</strong>
+          <span>YouTube reviews inauthentic firehose at the channel. Accept is required.</span>
+        </div>
+        <label>Hook — first 3s promise</label>
+        <input id="desk-hook" />
+        <label>Beats</label>
+        <div id="desk-body"></div>
+        <button class="ghost" id="add-beat">Add beat</button>
+        <label>CTA</label>
+        <input id="desk-cta" />
+        <label>Captions (edit before export)</label>
+        <div id="desk-captions"></div>
+        <div class="beats-meta" id="desk-meta"></div>
+        <button class="primary" id="desk-accept">Accept script</button>
+      </div>
+      <div class="pack" id="pack" hidden>
+        <div class="desk-head">
+          <strong>Publish pack</strong>
+          <div>
+            <button class="ghost" id="copy-title">Copy title</button>
+            <button class="ghost" id="copy-desc">Copy description</button>
+            <button class="ghost" disabled title="YouTube Data API OAuth is not wired. Coming soon.">Upload</button>
+          </div>
+        </div>
+        <h3 id="pack-title"></h3>
+        <pre id="pack-desc"></pre>
+        <p class="gold" id="pack-reminder"></p>
+        <p class="muted" id="pack-tags"></p>
+        <p class="muted" id="pack-chapters"></p>
+      </div>
+    </section>
+
+    <aside class="inspector">
+      <div class="kicker">Create</div>
+      <label>Channel type</label>
+      <select id="channel-type">
+        <option value="facelessFacts">Faceless facts</option>
+        <option value="listicle">Listicle</option>
+        <option value="explainer">Explainer</option>
+        <option value="storytime">Storytime</option>
+        <option value="product">Product</option>
+        <option value="commentary">Commentary</option>
+        <option value="news">News</option>
+      </select>
+      <label>Target</label>
+      <div class="seg" id="target">
+        <button data-value="short" class="on">YouTube Short</button>
+        <button data-value="longForm">Long-form</button>
+      </div>
+      <label>Series / pillar</label>
+      <input id="series" placeholder="Optional series name" />
+      <label>Topic or full script</label>
+      <textarea id="topic" placeholder="3 reasons your morning walk beats the gym"></textarea>
+
+      <div class="kicker">Voice</div>
+      <div class="gold" id="engine">Engine: no VO</div>
+      <select id="voice"></select>
+
+      <div class="kicker">Caption style</div>
+      <div class="style-grid" id="style-grid"></div>
+      <p class="muted" id="style-name">Dynamic Minimal</p>
+
+      <div class="kicker">Sources</div>
+      <label class="toggle"><input type="checkbox" id="use-pexels" checked /> Pexels stock video</label>
+      <label class="toggle"><input type="checkbox" id="use-pixabay" checked /> Pixabay stock video</label>
+      <label class="toggle"><input type="checkbox" id="use-unsplash" /> Unsplash stills (manual only, off by default)</label>
+      <label class="toggle"><input type="checkbox" id="use-local" checked /> Use Ollama if available</label>
+      <label class="toggle"><input type="checkbox" id="use-local-models" checked /> Use local GPU models if downloaded</label>
+      <label>Local gen mode</label>
+      <select id="local-mode">
+        <option value="stock-first">Stock first (Pexels, then LTX hook)</option>
+        <option value="local-fast">Local Fast (1 LTX hook + Qwen stills)</option>
+        <option value="local-quality">Local Quality (Wan hook + 1–2 beats, Qwen rest)</option>
+      </select>
+      <label class="toggle"><input type="checkbox" id="burn" checked /> Burn captions</label>
+      <label class="toggle"><input type="checkbox" id="srt" checked /> Export sidecar SRT</label>
+      <div class="cards-warn" id="cards-warn" hidden>
+        <strong>Cards, not a real video.</strong>
+        No Pexels or Pixabay key and no local files. Instant pack still paints full-bleed art. Cards-only is last resort.
+      </div>
+      <label class="toggle"><input type="checkbox" id="allow-cards" /> Cards ok (slide-deck export)</label>
+
+      <p class="error" id="error" hidden></p>
+      <button class="primary" id="btn-draft">Draft script</button>
+      <button class="ghost" id="btn-accept" hidden>Accept script</button>
+    </aside>
+  </main>
+
+  <div class="modal" id="settings" hidden>
+    <div class="sheet">
+      <div class="desk-head">
+        <strong>Settings</strong>
+        <button class="ghost" id="settings-close">Done</button>
+      </div>
+      <label>Pexels API key (REELFORGE_PEXELS_API_KEY)</label>
+      <input id="pexels-key" type="password" placeholder="Paste key" />
+      <label>Pixabay API key (optional second stock source)</label>
+      <input id="pixabay-key" type="password" placeholder="Paste key" />
+      <p class="muted">Pexels video is first. Pixabay is the second free source. Cards are last-resort and will not export as a finished Short unless you opt in.</p>
+      <label>Channel name</label>
+      <input id="channel-name" />
+      <label>Primary color</label>
+      <input id="primary" type="color" value="#FF4D6D" />
+      <label>Accent color</label>
+      <input id="accent" type="color" value="#E8C39A" />
+      <label class="toggle"><input type="checkbox" id="outro" checked /> Outro subscribe card</label>
+      <label>Imported music folder</label>
+      <input id="music-folder" placeholder="C:\\Users\\you\\Music\\beds" />
+      <p class="muted">Hook always opens. Logo watermark only after 1.5s. Music is bundled beds or your folder — never CapCut/TikTok tracks. Preferred TTS: Kokoro-FastAPI at http://127.0.0.1:8880/v1/audio/speech.</p>
+      <details>
+      <summary class="kicker">Advanced: I already run ComfyUI</summary>
+      <p class="muted">Not required. The sold app uses native inference when models are Ready. This only talks to a sidecar you already started.</p>
+      <label>ComfyUI URL</label>
+      <input id="comfy-url" placeholder="http://127.0.0.1:8188" />
+      <label>Local gen mode</label>
+      <select id="settings-local-mode">
+        <option value="stock-first">Stock first</option>
+        <option value="local-fast">Local Fast</option>
+        <option value="local-quality">Local Quality</option>
+      </select>
+      <div class="chips" id="comfy-chips"></div>
+      <button class="ghost" id="scan-comfy" type="button">Probe ComfyUI</button>
+      <label>LTX checkpoint filename</label>
+      <input id="ltx-ckpt" placeholder="ltx-2.3-22b-distilled.safetensors" />
+      <label>LTX LoRA filename</label>
+      <input id="ltx-lora" placeholder="ltx-2.3-22b-distilled-lora-384.safetensors" />
+      <label>Wan UNET filename</label>
+      <input id="wan-ckpt" placeholder="wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors" />
+      <label>Wan LightX2V LoRA</label>
+      <input id="wan-lora" placeholder="lightx2v_T2V_14B_cfg_step_distill_v2.safetensors" />
+      <label>Qwen Image UNET</label>
+      <input id="qwen-ckpt" placeholder="qwen_image_fp8_e4m3fn.safetensors" />
+      <label>Qwen Lightning LoRA</label>
+      <input id="qwen-lora" placeholder="Qwen-Image-Lightning-8steps-V1.0.safetensors" />
+      </details>
+      <div class="kicker">Model Manager</div>
+      <p class="muted">Optional GPU packs. Point at weights you already have, or use the first-run wizard. The installer never bundles diffusion models.</p>
+      <label>modelsDir</label>
+      <input id="models-dir" placeholder="D:\\weights or a folder you already have" />
+      <button class="ghost" id="scan-models" type="button">Scan now</button>
+      <div id="model-slots" class="model-slots"></div>
+      <button class="primary" id="save-settings">Save keys</button>
+    </div>
+  </div>
+  <div class="modal" id="wizard" hidden>
+    <div class="sheet wizard">
+      <h2>Set up ReelForge in one click</h2>
+      <p class="muted" id="wizard-hw">Detecting this PC…</p>
+      <div id="wizard-packs"></div>
+      <label>I already have models</label>
+      <div class="row">
+        <input id="wizard-folder" placeholder="E:\\ComfyUI_windows_portable_nvidia\\ComfyUI\\models" />
+        <button class="ghost" id="wizard-scan">Scan</button>
+      </div>
+      <div class="progress" id="wizard-progress"><div class="bar"><i id="wizard-bar"></i></div><div id="wizard-detail">One button. Progress, resume, checksum, pause/retry.</div></div>
+      <p class="error" id="wizard-error" hidden></p>
+      <div class="row">
+        <button class="ghost" id="wizard-skip">Skip — Instant pack</button>
+        <button class="ghost" id="wizard-ffmpeg">Download ffmpeg</button>
+        <button class="primary" id="wizard-go">Use recommended</button>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

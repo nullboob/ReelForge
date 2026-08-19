@@ -1,0 +1,20 @@
+{
+  "id": "listicle",
+  "name": "Listicle",
+  "tagline": "Numbered payoffs. Built for faceless lists.",
+  "coverGradient": ["#F4C14D", "#1A1204"],
+  "aspect": "9:16",
+  "durationSec": 45,
+  "pace": { "cutMinSec": 1.6, "cutMaxSec": 2.8, "transition": "hardCut" },
+  "captionStyle": {
+    "font": "AvenirNext-Heavy", "size": 52, "weight": "heavy",
+    "fill": "#FFF8E6", "stroke": "#1A1204", "highlight": "#F4C14D",
+    "position": "center", "maxWordsPerCard": 6, "animation": "pop"
+  },
+  "titleCard": { "enabled": true, "font": "AvenirNext-Heavy", "size": 58, "fill": "#F4C14D", "background": "#1A1204CC", "numbered": true },
+  "colorGrade": { "contrast": 1.14, "saturation": 1.12, "warmth": 0.1, "vignette": 0.2 },
+  "music": { "mood": "pulse", "bpm": 120, "duckDb": -10 },
+  "footage": { "unsplashQueries": ["overhead desk list", "bold color block", "city documentary", "hands counting"], "kenBurns": true, "zoomPulse": true, "overlayGrain": true },
+  "aiImageStyleSuffix": "bold editorial still, numbered graphic energy, high contrast, no faces",
+  "aiVideoEnabled": false
+}

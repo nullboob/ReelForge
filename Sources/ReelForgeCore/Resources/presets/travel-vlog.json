@@ -1,0 +1,51 @@
+{
+  "id": "travel-vlog",
+  "name": "Travel Vlog",
+  "tagline": "Warm light. Whip pans. Map energy.",
+  "coverGradient": ["#FF9F43", "#1A0E08"],
+  "aspect": "9:16",
+  "durationSec": 30,
+  "pace": {
+    "cutMinSec": 1.5,
+    "cutMaxSec": 2.6,
+    "transition": "whip"
+  },
+  "captionStyle": {
+    "font": "AvenirNext-Bold",
+    "size": 46,
+    "weight": "bold",
+    "fill": "#FFF6E8",
+    "stroke": "#2A1408",
+    "highlight": "#FFB35C",
+    "position": "bottom",
+    "maxWordsPerCard": 6,
+    "animation": "pop"
+  },
+  "titleCard": {
+    "enabled": true,
+    "font": "AvenirNext-Heavy",
+    "size": 58,
+    "fill": "#FFF6E8",
+    "background": "#1A0E0888",
+    "numbered": false
+  },
+  "colorGrade": {
+    "contrast": 1.1,
+    "saturation": 1.18,
+    "warmth": 0.22,
+    "vignette": 0.24
+  },
+  "music": {
+    "mood": "warm",
+    "bpm": 108,
+    "duckDb": -10
+  },
+  "footage": {
+    "unsplashQueries": ["sunlit alley travel", "train window landscape", "map coffee table", "golden hour street"],
+    "kenBurns": true,
+    "zoomPulse": true,
+    "overlayGrain": true
+  },
+  "aiImageStyleSuffix": "travel film still, golden hour, 28mm, warm highlights, lived-in streets",
+  "aiVideoEnabled": false
+}

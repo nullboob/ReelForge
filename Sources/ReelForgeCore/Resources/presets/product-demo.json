@@ -1,0 +1,51 @@
+{
+  "id": "product-demo",
+  "name": "Product Demo",
+  "tagline": "Clean feature beats. The product does the talking.",
+  "coverGradient": ["#5B8CFF", "#0C1220"],
+  "aspect": "16:9",
+  "durationSec": 30,
+  "pace": {
+    "cutMinSec": 2.2,
+    "cutMaxSec": 4.0,
+    "transition": "fade"
+  },
+  "captionStyle": {
+    "font": "HelveticaNeue-Bold",
+    "size": 40,
+    "weight": "bold",
+    "fill": "#F4F7FF",
+    "stroke": "#0B1020",
+    "highlight": "#7CB8FF",
+    "position": "bottom",
+    "maxWordsPerCard": 7,
+    "animation": "pop"
+  },
+  "titleCard": {
+    "enabled": true,
+    "font": "HelveticaNeue-Bold",
+    "size": 52,
+    "fill": "#FFFFFF",
+    "background": "#0B1020CC",
+    "numbered": false
+  },
+  "colorGrade": {
+    "contrast": 1.08,
+    "saturation": 1.04,
+    "warmth": -0.04,
+    "vignette": 0.16
+  },
+  "music": {
+    "mood": "clean",
+    "bpm": 100,
+    "duckDb": -10
+  },
+  "footage": {
+    "unsplashQueries": ["minimal desk product", "clean studio object", "laptop workspace", "soft gradient product"],
+    "kenBurns": true,
+    "zoomPulse": false,
+    "overlayGrain": false
+  },
+  "aiImageStyleSuffix": "clean product photography, soft studio light, minimal background, crisp edges",
+  "aiVideoEnabled": false
+}

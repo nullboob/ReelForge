@@ -1,0 +1,20 @@
+{
+  "id": "storytime",
+  "name": "Storytime",
+  "tagline": "A quiet open. A turn. A feeling that stays.",
+  "coverGradient": ["#C9A27A", "#14100C"],
+  "aspect": "9:16",
+  "durationSec": 60,
+  "pace": { "cutMinSec": 2.8, "cutMaxSec": 5.2, "transition": "fade" },
+  "captionStyle": {
+    "font": "AvenirNext-DemiBold", "size": 40, "weight": "demibold",
+    "fill": "#F6EFE4", "stroke": "#14100C", "highlight": "#E8C39A",
+    "position": "bottom", "maxWordsPerCard": 8, "animation": "word-by-word"
+  },
+  "titleCard": { "enabled": true, "font": "Didot-Bold", "size": 52, "fill": "#F6EFE4", "background": "#00000066", "numbered": false },
+  "colorGrade": { "contrast": 1.1, "saturation": 0.9, "warmth": 0.18, "vignette": 0.38 },
+  "music": { "mood": "cinematic", "bpm": 78, "duckDb": -13 },
+  "footage": { "unsplashQueries": ["empty room dusk", "window rain", "road at night", "close up fabric"], "kenBurns": true, "zoomPulse": false, "overlayGrain": true },
+  "aiImageStyleSuffix": "narrative film still, warm practical light, 50mm, no faces",
+  "aiVideoEnabled": false
+}

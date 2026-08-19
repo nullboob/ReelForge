@@ -1,0 +1,20 @@
+{
+  "id": "explainer",
+  "name": "Explainer",
+  "tagline": "Calm cuts. One idea, locked in.",
+  "coverGradient": ["#6EC8FF", "#0B1520"],
+  "aspect": "16:9",
+  "durationSec": 180,
+  "pace": { "cutMinSec": 3.0, "cutMaxSec": 5.5, "transition": "fade" },
+  "captionStyle": {
+    "font": "AvenirNext-DemiBold", "size": 38, "weight": "demibold",
+    "fill": "#F2F8FF", "stroke": "#0B1520", "highlight": "#6EC8FF",
+    "position": "bottom", "maxWordsPerCard": 8, "animation": "word-by-word"
+  },
+  "titleCard": { "enabled": true, "font": "AvenirNext-Bold", "size": 46, "fill": "#F2F8FF", "background": "#0B1520CC", "numbered": false },
+  "colorGrade": { "contrast": 1.06, "saturation": 1.0, "warmth": -0.02, "vignette": 0.16 },
+  "music": { "mood": "clean", "bpm": 96, "duckDb": -12 },
+  "footage": { "unsplashQueries": ["whiteboard diagram", "soft study window", "library aisle", "calm workspace"], "kenBurns": true, "zoomPulse": false, "overlayGrain": false },
+  "aiImageStyleSuffix": "clear instructional still, soft daylight, simple composition, no faces",
+  "aiVideoEnabled": false
+}

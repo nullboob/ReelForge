@@ -1,0 +1,61 @@
+name: Core tests
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+
+jobs:
+  swift-test:
+    name: ReelForgeCore on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "5.10"
+      - name: Test portable pipeline
+        run: swift test --package-path .
+      - name: Confirm app sources exist
+        run: |
+          test -f project.yml
+          test -f Sources/ReelForgeApp/ReelForgeApp.swift
+          test -f Sources/ReelForgeApp/Pipeline/Director.swift
+          test -d Sources/ReelForgeCore/Resources/presets
+          test ! -f Sources/ReelForgeApp/Pipeline/ComfyUIClient.swift
+          test ! -f Sources/ReelForgeCore/LocalAI/ComfyWorkflowBuilder.swift
+          test -f Sources/ReelForgeCore/LocalAI/FootageLadder.swift
+          test -f Sources/ReelForgeApp/Pipeline/ComfyClient.swift
+          test -f Sources/ReelForgeCore/Resources/workflows/ltx-fast.json
+          test -f Sources/ReelForgeCore/Edit/EditList.swift
+          test -f windows/reelforge/edl.py
+          test -f Sources/ReelForgeApp/Pipeline/EDLExporter.swift
+          test -f Sources/ReelForgeCore/Resources/models/manifest.json
+          test -f windows/reelforge/models/manifest.json
+          test -f windows/ReelForge.spec
+          test -f windows/build-windows.ps1
+          test -f windows/installer/ReelForge.iss
+          test -f docs/SHIP.md
+          test -f Sources/ReelForgeCore/LocalAI/SetupWizard.swift
+          echo "macOS app sources are present; build them with XcodeGen on macOS 14+."
+
+  python-test:
+    name: Windows core on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install core deps (no diffusion extras)
+        run: |
+          python -m pip install -r windows/requirements.txt
+          ! grep -E '^(torch|diffusers|ltx-pipelines|edge-tts|pyttsx3|moviepy|remotion)' windows/requirements.txt
+      - name: Unit tests
+        env:
+          REELFORGE_SKIP_INFER: "1"
+          REELFORGE_SKIP_COMFY: "1"
+          REELFORGE_SKIP_ACE: "1"
+        run: python -m unittest discover -s windows/tests -v
