@@ -166,7 +166,7 @@ def estimate_duration(text: str) -> float:
 
 
 def _basic_voice(text: str, dest: Path) -> bool:
-    """OS neural / SAPI last resort. Labeled 'basic voice'. Do not vendor pyttsx3."""
+    """OS neural last resort. Labeled 'basic voice'. Do not vendor a Python TTS package."""
     if os.environ.get("REELFORGE_DISABLE_BASIC_VOICE") == "1":
         return False
     dest.parent.mkdir(parents=True, exist_ok=True)

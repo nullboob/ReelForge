@@ -73,12 +73,13 @@ class EditListTests(unittest.TestCase):
         self.assertIsNone(footage.first_unused([{"id": 11}], {11}))
         self.assertIsNone(footage.first_unused([{"id": 0}], set()))
 
-    def test_speech_module_does_not_vendor_sapi_or_edge_tts(self):
+    def test_speech_module_does_not_vendor_python_tts_packages(self):
         src = (Path(__file__).resolve().parents[1] / "reelforge" / "speech.py").read_text(encoding="utf-8")
-        self.assertNotIn("pyttsx3", src)
+        self.assertNotIn("import pyttsx3", src)
         self.assertNotIn("import edge_tts", src)
         self.assertNotIn("win32com", src)
-        self.assertNotIn("SAPI", src)
+        self.assertIn("basic voice", src)
+        self.assertIn("System.Speech", src)
         req = (Path(__file__).resolve().parents[1] / "requirements.txt").read_text(encoding="utf-8")
         self.assertFalse(any(line.strip().startswith("edge-tts") for line in req.splitlines()))
         self.assertFalse(any(line.strip().startswith("pyttsx3") for line in req.splitlines()))
