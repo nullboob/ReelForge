@@ -157,7 +157,7 @@ final class Director: @unchecked Sendable {
         }
 
         try Task.checkCancellation()
-        await emit(.voice, request.voiceoverURL == nil ? "Kokoro-class VO (never AVSpeech)" : "Using your dropped voiceover")
+        await emit(.voice, request.voiceoverURL == nil ? "Kokoro, then edge-tts, then basic voice" : "Using your dropped voiceover")
         let voiceURL = assetsDir.appendingPathComponent("voice.wav")
         var voiceDuration: Double
         if let provided = request.voiceoverURL {
@@ -194,7 +194,7 @@ final class Director: @unchecked Sendable {
             } catch {
                 voiceDuration = speechService.estimateDuration(text: script.fullText)
                 try MusicBedSynthesizer.writeSilence(duration: voiceDuration, to: voiceURL)
-                project.warnings.append("No Kokoro and no edge-tts CLI — export continues without a spoken VO. AVSpeech is not used.")
+                project.warnings.append("Neural voice missed. Export continues with silence if basic voice is also unavailable.")
             }
         }
         project.assets.removeAll { $0.kind == .voiceover }

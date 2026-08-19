@@ -46,6 +46,9 @@ def synthesize(text: str, dest: Path, voice_identifier: str | None = None, speed
     if timed:
         return timed[0], "edge-tts-cli", timed[1]
 
+    if _basic_voice(spoken, dest):
+        return wav_duration(dest) or estimate_duration(spoken), "basic voice", []
+
     write_silence(dest, estimate_duration(spoken))
     return estimate_duration(spoken), "silence", []
 
@@ -67,6 +70,12 @@ def probe_kokoro() -> bool:
 
 def probe_edge_tts_cli() -> bool:
     return shutil.which("edge-tts") is not None
+
+
+def probe_basic_voice() -> bool:
+    if os.name == "nt":
+        return shutil.which("powershell") is not None
+    return shutil.which("say") is not None
 
 
 def probe_ollama() -> str | None:
@@ -154,3 +163,27 @@ def wav_duration(path: Path) -> float | None:
 def estimate_duration(text: str) -> float:
     words = len(text.split())
     return max(4.0, words / 2.35)
+
+
+def _basic_voice(text: str, dest: Path) -> bool:
+    """OS neural / SAPI last resort. Labeled 'basic voice'. Do not vendor pyttsx3."""
+    if os.environ.get("REELFORGE_DISABLE_BASIC_VOICE") == "1":
+        return False
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if os.name == "nt" and (powershell := shutil.which("powershell")):
+        script = (
+            "Add-Type -AssemblyName System.Speech; "
+            "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+            f"$s.SetOutputToWaveFile('{str(dest).replace(chr(39), '')}'); "
+            f"$s.Speak('{text.replace(chr(39), '').replace(chr(10), ' ')[:800]}'); "
+            "$s.Dispose()"
+        )
+        result = subprocess.run([powershell, "-NoProfile", "-Command", script], capture_output=True, text=True)
+        return result.returncode == 0 and dest.exists() and dest.stat().st_size > 200
+    say = shutil.which("say")
+    if say:
+        aiff = dest.with_suffix(".aiff")
+        result = subprocess.run([say, "-o", str(aiff), text[:800]], capture_output=True, text=True)
+        if result.returncode == 0 and aiff.exists():
+            return bool(_transcode_to_wav(aiff, dest))
+    return False

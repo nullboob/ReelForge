@@ -37,6 +37,9 @@ targets:
       - path: Sources/ReelForgeCore/Resources/workflows
         type: folder
         buildPhase: resources
+      - path: Sources/ReelForgeCore/Resources/models
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.reelforge.ReelForge
@@ -73,4 +76,4 @@ targets:
         LSApplicationCategoryType: public.app-category.video
         NSHighResolutionCapable: true
         NSPrincipalClass: NSApplication
-        NSLocalNetworkUsageDescription: ReelForge talks to local Ollama, Kokoro-FastAPI, ComfyUI at 127.0.0.1:8188, and optional in-app model inference on this Mac.
+        NSLocalNetworkUsageDescription: ReelForge talks to local Ollama and Kokoro-FastAPI, downloads optional GPU packs you choose, and can use in-app model inference on this Mac.

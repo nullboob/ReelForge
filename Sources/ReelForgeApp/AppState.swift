@@ -45,6 +45,7 @@ final class AppState: ObservableObject {
     @Published var exportURL: URL?
     @Published var lastError: String?
     @Published var showSettings = false
+    @Published var showWizard = !UserDefaults.standard.bool(forKey: "reelforge.setupComplete")
     @Published var localStatus = LocalAIStatus()
     @Published var unsplashConfigured = false
     @Published var pexelsConfigured = false

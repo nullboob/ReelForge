@@ -31,6 +31,13 @@ jobs:
           test -f Sources/ReelForgeCore/Edit/EditList.swift
           test -f windows/reelforge/edl.py
           test -f Sources/ReelForgeApp/Pipeline/EDLExporter.swift
+          test -f Sources/ReelForgeCore/Resources/models/manifest.json
+          test -f windows/reelforge/models/manifest.json
+          test -f windows/ReelForge.spec
+          test -f windows/build-windows.ps1
+          test -f windows/installer/ReelForge.iss
+          test -f docs/SHIP.md
+          test -f Sources/ReelForgeCore/LocalAI/SetupWizard.swift
           echo "macOS app sources are present; build them with XcodeGen on macOS 14+."
 
   python-test:

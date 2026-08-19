@@ -8,7 +8,8 @@ from reelforge.edl import ENCODER_WHITELIST
 
 
 def which_ffmpeg() -> str | None:
-    return shutil.which("ffmpeg")
+    from reelforge.ffmpeg_bundle import which_ffmpeg as bundled
+    return bundled()
 
 
 @lru_cache(maxsize=1)

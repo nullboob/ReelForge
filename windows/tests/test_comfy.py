@@ -155,7 +155,7 @@ class FootageLadderTests(unittest.TestCase):
         self.assertEqual(called["image"], 0)
         self.assertTrue(any(entry["credit"] == "Ada / Pexels" for entry in ledger))
 
-    def test_comfy_down_no_key_warns_and_is_cards_only(self):
+    def test_offline_without_models_paints_instead_of_comfy(self):
         beats = [
             {"id": "b0", "text": "morning walk", "start": 0, "duration": 3, "unsplashQuery": "walk"},
             {"id": "b1", "text": "second beat", "start": 3, "duration": 3, "unsplashQuery": "path"},
@@ -175,10 +175,10 @@ class FootageLadderTests(unittest.TestCase):
                 use_local_models=True,
                 local_mode="local-fast",
             )
-        self.assertTrue(cards_only)
-        self.assertTrue(any("ComfyUI is down" in item for item in warnings))
-        self.assertTrue(any("cards" in item.lower() for item in warnings))
-        self.assertTrue(all(item["source"] == "reelforge-card" for item in assignments.values()))
+        self.assertFalse(cards_only)
+        self.assertFalse(any("ComfyUI is down" in item for item in warnings))
+        self.assertTrue(all(item["source"] == "painted" for item in assignments.values()))
+        self.assertTrue(any(entry.get("credit") == "Painted art" for entry in ledger))
         self.assertFalse(any(entry.get("credit") in {"LTX-2.3 local", "Wan 2.2 local", "Qwen Image local"} for entry in ledger))
 
 

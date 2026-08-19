@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from reelforge.cards import render_card
+from reelforge.cards import render_card, render_painted
 from reelforge.paths import blacklist_path
 from reelforge.presets import pixel_size
 
@@ -86,19 +86,10 @@ def gather(
     locals_ = [Path(p) for p in (local_files or []) if Path(p).exists()]
     mode = local_mode if local_mode in {"stock-first", "local-fast", "local-quality"} else "stock-first"
     has_stock_key = bool((use_pexels and pexels_key) or (use_pixabay and pixabay_key))
-    comfy_status: dict[str, Any] | None = None
-    if use_local_models:
-        from reelforge import comfy
-        comfy_status = comfy.probe(comfy_url)
-        if not comfy_status.get("up"):
-            warnings.append(f"ComfyUI is down at {comfy.base_url(comfy_url)} — skipped local gen.")
     if use_pexels and not pexels_key:
         warnings.append("No Pexels key — stock video skipped unless Pixabay is set.")
-    if not has_stock_key and not locals_ and not (comfy_status or {}).get("up"):
-        warnings.append(
-            "CARDS ONLY: no Pexels/Pixabay key, no local files, and ComfyUI is down. "
-            "This will look like a slide deck unless you opt into cards."
-        )
+    if not has_stock_key and not locals_:
+        warnings.append("No stock key and no local files. Instant pack uses painted full-bleed art unless a GPU model is Ready.")
 
     used_clip_ids: set[int] = set()
     card_count = 0
@@ -126,9 +117,9 @@ def gather(
             used_clip_ids,
         ):
             continue
-        if use_local_models and _assign_comfy(
-            beat, index, query, work, aspect, preset, mode, comfy_url, comfy_settings,
-            comfy_status, models_dir, on_progress, assignments, ledger, warnings,
+        if use_local_models and _assign_native(
+            beat, index, query, work, aspect, preset, mode, models_dir, on_progress,
+            assignments, ledger, warnings,
         ):
             continue
         if not try_stock_first and _assign_stock(
@@ -138,6 +129,14 @@ def gather(
         ):
             continue
 
+        painted = work / f"painted-{index}.png"
+        try:
+            render_painted(beat["text"], painted, size, preset, channel_name)
+            assignments[beat["id"]] = {"kind": "image", "path": str(painted), "source": "painted"}
+            ledger.append(_entry(f"painted-{index}", "visual", "painted", "Generated in-app", "Painted art", beat["id"]))
+            continue
+        except Exception:
+            pass
         render_card(beat["text"], dest_card, size, preset, channel_name, watermark=beat["start"] >= 1.5)
         assignments[beat["id"]] = {"kind": "card", "path": str(dest_card), "source": "reelforge-card"}
         ledger.append(_entry(f"card-{index}", "visual", "reelforge-card", "Generated in-app", "Styled card", beat["id"]))
@@ -146,6 +145,8 @@ def gather(
     cards_only = card_count == len(beats) and len(beats) > 0 and not locals_
     if cards_only:
         warnings.append("Export used styled cards for every beat — not a finished Short unless you opted into cards.")
+    elif any((assignments.get(beat["id"]) or {}).get("source") == "painted" for beat in beats):
+        warnings.append("Used painted full-bleed art. Add a free Pexels key for real B-roll.")
     elif card_count:
         warnings.append(f"{card_count} beat(s) fell back to cards after stock and local gen missed.")
     return assignments, ledger, warnings, cards_only
@@ -182,6 +183,38 @@ def _assign_stock(
                     f"{clip['user']} / Pixabay", beat["id"], str(clip["id"])
                 ))
                 return True
+    return False
+
+
+def _assign_native(
+    beat, index, query, work, aspect, preset, mode, models_dir, on_progress,
+    assignments, ledger, warnings,
+) -> bool:
+    from reelforge import infer
+    kind = local_kind(index, mode)
+    style = preset.get("aiImageStyleSuffix") or ""
+    prompt = f"{query}, vertical {aspect} photoreal footage, natural light, no text, no captions, no logo. {style}".strip()
+    seconds = min(4.0, max(2.0, float(beat.get("duration") or 3)))
+    if kind in {"ltx", "wan"}:
+        dest_video = work / f"{kind}-{index}.mp4"
+        if on_progress:
+            on_progress(f"Local {kind.upper()} for beat {index + 1}")
+        ok = infer.generate_video(prompt, dest_video, aspect=aspect, seconds=seconds, models_dir=models_dir)
+        if not ok and kind == "wan":
+            ok = infer.generate_wan_video(prompt, dest_video)
+        if ok:
+            credit = "LTX-2.3 local" if kind == "ltx" else "Wan 2.2 local"
+            assignments[beat["id"]] = {"kind": "video", "path": str(dest_video), "source": kind}
+            ledger.append(_entry(f"{kind}-{index}", "visual", kind, "Generated in-app", credit, beat["id"]))
+            return True
+        warnings.append(f"GPU video missed beat {index + 1} — trying a still.")
+    dest_still = work / f"qwen-{index}.png"
+    if on_progress:
+        on_progress(f"Local Qwen still for beat {index + 1}")
+    if infer.generate_image(prompt, dest_still, aspect=aspect, models_dir=models_dir):
+        assignments[beat["id"]] = {"kind": "image", "path": str(dest_still), "source": "qwen"}
+        ledger.append(_entry(f"qwen-{index}", "visual", "qwen", "Generated in-app", "Qwen Image local", beat["id"]))
+        return True
     return False
 
 

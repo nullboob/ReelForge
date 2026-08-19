@@ -26,6 +26,21 @@ struct RootView: View {
             SettingsView()
                 .environmentObject(state)
         }
+        .sheet(isPresented: $state.showWizard) {
+            SetupWizardView()
+                .environmentObject(state)
+        }
+        .overlay(alignment: .bottom) {
+            if let error = state.lastError, !error.isEmpty {
+                Text(error)
+                    .font(.system(size: 13))
+                    .foregroundStyle(RFTheme.gold)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(RFTheme.surface, in: Capsule())
+                    .padding(.bottom, 18)
+            }
+        }
         .onAppear { state.refreshStatus() }
     }
 }

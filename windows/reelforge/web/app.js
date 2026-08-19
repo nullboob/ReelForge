@@ -252,6 +252,68 @@ async function accept() {
   }
 }
 
+function toast(message) {
+  const el = $("toast");
+  if (!el || !message) return;
+  el.hidden = false;
+  el.textContent = message;
+  setTimeout(() => { el.hidden = true; }, 6000);
+}
+
+async function showWizard() {
+  const data = await api("/api/setup");
+  if (data.setupComplete) return;
+  $("wizard").hidden = false;
+  const hw = data.hardware || {};
+  $("wizard-hw").textContent = `GPU ${hw.nvidia ? "NVIDIA " + (hw.vramGB || 0) + " GB" : (hw.appleGPU ? "Apple GPU" : "none")} · RAM ${hw.ramGB || "?"} GB · disk ${hw.diskFreeGB || "?"} GB free`;
+  const box = $("wizard-packs");
+  box.innerHTML = "";
+  state.wizardPack = data.recommended || "instant";
+  for (const pack of data.packs || []) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "pack-row" + (pack.id === state.wizardPack ? " on" : "");
+    row.innerHTML = `<div><strong>${pack.name}</strong><div class="muted">${pack.summary}</div></div><span>${pack.sizeLabel}${pack.id === data.recommended ? " · Recommended" : ""}</span>`;
+    row.onclick = () => {
+      state.wizardPack = pack.id;
+      for (const child of box.children) child.classList.toggle("on", child === row);
+    };
+    box.appendChild(row);
+  }
+}
+
+$("wizard-skip").onclick = async () => {
+  await api("/api/setup/skip", { method: "POST", body: "{}" });
+  $("wizard").hidden = true;
+  toast("Instant pack is ready. Add a Pexels key when you want real B-roll.");
+};
+$("wizard-go").onclick = async () => {
+  $("wizard-error").hidden = true;
+  $("wizard-detail").textContent = "Downloading into AppData — no admin.";
+  try {
+    await api("/api/setup/download", { method: "POST", body: JSON.stringify({ pack: state.wizardPack || "instant" }) });
+    $("wizard").hidden = true;
+    toast("Setup saved. You can keep making videos without models.");
+  } catch (err) {
+    $("wizard-error").hidden = false;
+    $("wizard-error").textContent = err.message;
+    toast(err.message);
+  }
+};
+$("wizard-scan").onclick = async () => {
+  const catalog = await api("/api/setup/scan", { method: "POST", body: JSON.stringify({ modelsDir: $("wizard-folder").value }) });
+  renderModelSlots(catalog);
+  toast(catalog.anyReady ? "Found weights. Marked Ready." : "No known filenames in that folder.");
+};
+$("wizard-ffmpeg").onclick = async () => {
+  try {
+    const data = await api("/api/ffmpeg", { method: "POST", body: "{}" });
+    toast(data.downloaded ? "ffmpeg is in your ReelForge folder." : "ffmpeg was already available.");
+  } catch (err) {
+    toast(err.message);
+  }
+};
+
 async function boot() {
   const data = await api("/api/bootstrap");
   state.presets = data.presets;
@@ -283,6 +345,9 @@ async function boot() {
   $("wan-lora").value = settings.wanLora || "lightx2v_T2V_14B_cfg_step_distill_v2.safetensors";
   $("qwen-ckpt").value = settings.qwenCkpt || "qwen_image_fp8_e4m3fn.safetensors";
   $("qwen-lora").value = settings.qwenLora || "Qwen-Image-Lightning-8steps-V1.0.safetensors";
+  if (!settings.setupComplete) {
+    showWizard().catch((err) => toast(err.message));
+  }
 }
 
 $("search").oninput = renderPresets;

@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "title": "Set up ReelForge in one click",
+  "modelsDirNote": "Windows: %LOCALAPPDATA%\\ReelForge\\models. Mac: ~/Library/Application Support/ReelForge/models. Downloads never need admin.",
+  "scanRoots": [
+    "%LOCALAPPDATA%/ReelForge/models",
+    "~/Library/Application Support/ReelForge/models",
+    "E:/ComfyUI_windows_portable_nvidia/ComfyUI/models",
+    "D:/"
+  ],
+  "packs": [
+    {
+      "id": "instant",
+      "name": "Instant",
+      "sizeLabel": "0 GB",
+      "summary": "Stock footage + captions. Always available.",
+      "fileIds": [],
+      "minVramGB": 0,
+      "hiddenUnlessVramGB": null
+    },
+    {
+      "id": "fast-image",
+      "name": "Fast Image",
+      "sizeLabel": "~8–12 GB",
+      "summary": "Qwen Image Lightning. One click download.",
+      "fileIds": ["qwen-image", "qwen-lightning"],
+      "minVramGB": 8,
+      "hiddenUnlessVramGB": null
+    },
+    {
+      "id": "fast-video",
+      "name": "Fast Video",
+      "sizeLabel": "~15–20 GB",
+      "summary": "LTX-2.3 distilled GGUF. One click.",
+      "fileIds": ["ltx-gguf"],
+      "minVramGB": 8,
+      "hiddenUnlessVramGB": null
+    },
+    {
+      "id": "quality-video",
+      "name": "Quality Video",
+      "sizeLabel": "24 GB+",
+      "summary": "Wan 2.2 4-step. Optional.",
+      "fileIds": ["wan-22", "lightx2v"],
+      "minVramGB": 16,
+      "hiddenUnlessVramGB": 16
+    }
+  ],
+  "files": [
+    {
+      "id": "qwen-lightning",
+      "displayName": "Qwen Image Lightning 8-step LoRA",
+      "sizeBytes": 1700000000,
+      "urls": ["https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-8steps-V1.0.safetensors"],
+      "sha256": "",
+      "minVramGB": 8,
+      "dest": "Qwen-Image-Lightning-8steps-V1.0.safetensors",
+      "optional": false,
+      "pack": "fast-image",
+      "note": "Verified Hugging Face file (1.7 GB)."
+    },
+    {
+      "id": "qwen-image",
+      "displayName": "Qwen Image checkpoint",
+      "sizeBytes": 10000000000,
+      "urls": [],
+      "sha256": "",
+      "minVramGB": 8,
+      "dest": "qwen_image_fp8_e4m3fn.safetensors",
+      "optional": false,
+      "pack": "fast-image",
+      "note": "Packaged at build or scan an existing folder. Official Qwen/Qwen-Image is a multi-file repo — no single-file URL pinned here."
+    },
+    {
+      "id": "ltx-gguf",
+      "displayName": "LTX-2.3 distilled Q5 GGUF",
+      "sizeBytes": 15000000000,
+      "urls": ["https://huggingface.co/unsloth/LTX-2.3-GGUF/resolve/main/distilled-1.1/ltx-2.3-22b-distilled-1.1-Q5_K_S.gguf"],
+      "sha256": "",
+      "minVramGB": 8,
+      "dest": "ltx-2.3-22b-distilled-1.1-Q5_K_S.gguf",
+      "optional": false,
+      "pack": "fast-video",
+      "note": "Verified community GGUF (~15 GB). Official full-precision distilled is 46.1 GB and is not the Fast pack."
+    },
+    {
+      "id": "ltx-distilled",
+      "displayName": "LTX-2.3 official distilled (full precision)",
+      "sizeBytes": 46100000000,
+      "urls": ["https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled.safetensors"],
+      "sha256": "14409a4d1337a8ded02fa87fb895b17a91ab2c6588f7cc3352e624ff18a689bf",
+      "minVramGB": 16,
+      "dest": "ltx-2.3-22b-distilled.safetensors",
+      "optional": true,
+      "pack": "fast-video",
+      "note": "Official Lightricks file is 46.1 GB. Fast pack downloads the GGUF instead."
+    },
+    {
+      "id": "wan-22",
+      "displayName": "Wan 2.2 T2V",
+      "sizeBytes": 24000000000,
+      "urls": [],
+      "sha256": "",
+      "minVramGB": 16,
+      "dest": "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
+      "optional": true,
+      "pack": "quality-video",
+      "note": "Wan-AI/Wan2.2-T2V-A14B is a multi-file repo. Packaged at build or scan existing filenames."
+    },
+    {
+      "id": "lightx2v",
+      "displayName": "LightX2V 4-step LoRA",
+      "sizeBytes": 1500000000,
+      "urls": [],
+      "sha256": "",
+      "minVramGB": 16,
+      "dest": "lightx2v_T2V_14B_cfg_step_distill_v2.safetensors",
+      "optional": true,
+      "pack": "quality-video",
+      "note": "Packaged at build or scan an existing loras folder."
+    },
+    {
+      "id": "ffmpeg-win",
+      "displayName": "ffmpeg (LGPL, app data)",
+      "sizeBytes": 80000000,
+      "urls": ["https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip"],
+      "sha256": "",
+      "minVramGB": 0,
+      "dest": "../bin/ffmpeg.zip",
+      "optional": false,
+      "pack": "ffmpeg",
+      "note": "BtbN LGPL build into %LOCALAPPDATA%\\ReelForge\\bin. Not a system install. One-click from the wizard if ffmpeg is missing."
+    }
+  ]
+}

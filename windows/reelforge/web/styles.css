@@ -246,3 +246,19 @@ pre {
   color: var(--muted);
 }
 .model-slot.on { color: #86efac; }
+.wizard h2 { margin: 0 0 8px; font-family: var(--serif); }
+.wizard .row { display: flex; gap: 8px; margin-top: 14px; }
+.wizard .row input { flex: 1; }
+.pack-row {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 10px 12px; margin: 8px 0; border-radius: 12px;
+  background: var(--elevated); border: 1px solid var(--line); cursor: pointer;
+}
+.pack-row.on { outline: 1px solid var(--gold); }
+.toast {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+  background: #2a1d14; color: var(--gold); padding: 10px 16px;
+  border-radius: 999px; border: 1px solid var(--line); z-index: 5;
+  max-width: min(640px, 92vw); font-size: 13px;
+}
+.toast[hidden] { display: none; }

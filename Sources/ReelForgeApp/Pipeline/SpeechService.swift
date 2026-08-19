@@ -63,7 +63,14 @@ struct SpeechService {
         if let duration = await edgeTTS(text: text, to: url) {
             return (duration, "edge-tts-cli")
         }
+        if let duration = await basicVoice(text: text, to: url) {
+            return (duration, "basic voice")
+        }
         throw SpeechServiceError.noKokoroClassVoice
+    }
+
+    static func defaultVoice() -> VoiceChoice? {
+        allVoices().first
     }
 
     private func kokoro(text: String, voice: String, speed: Double, to url: URL) async -> TimeInterval? {
@@ -133,5 +140,34 @@ struct SpeechService {
     func estimateDuration(text: String) -> TimeInterval {
         let words = text.split { $0.isWhitespace || $0.isNewline }.count
         return max(4, Double(words) / 2.35)
+    }
+
+    private func basicVoice(text: String, to url: URL) async -> TimeInterval? {
+        let say = "/usr/bin/say"
+        guard FileManager.default.isExecutableFile(atPath: say) else { return nil }
+        let aiff = url.deletingPathExtension().appendingPathExtension("aiff")
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: say)
+        task.arguments = ["-o", aiff.path, String(text.prefix(800))]
+        task.standardOutput = Pipe()
+        task.standardError = Pipe()
+        do { try task.run(); task.waitUntilExit() } catch { return nil }
+        guard task.terminationStatus == 0, FileManager.default.fileExists(atPath: aiff.path) else { return nil }
+        guard let ffmpeg = FFmpegFallback.resolve() else {
+            try? FileManager.default.copyItem(at: aiff, to: url)
+            return FileManager.default.fileExists(atPath: url.path) ? estimateDuration(text: text) : nil
+        }
+        let convert = Process()
+        convert.executableURL = URL(fileURLWithPath: ffmpeg)
+        convert.arguments = ["-hide_banner", "-y", "-i", aiff.path, "-ac", "1", "-ar", "44100", url.path]
+        convert.standardOutput = Pipe()
+        convert.standardError = Pipe()
+        try? convert.run()
+        convert.waitUntilExit()
+        try? FileManager.default.removeItem(at: aiff)
+        if convert.terminationStatus == 0, FileManager.default.fileExists(atPath: url.path) {
+            return await durationOfAudio(at: url) ?? estimateDuration(text: text)
+        }
+        return nil
     }
 }

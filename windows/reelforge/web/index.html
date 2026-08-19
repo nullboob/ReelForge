@@ -110,7 +110,7 @@
       <label class="toggle"><input type="checkbox" id="use-pixabay" checked /> Pixabay stock video</label>
       <label class="toggle"><input type="checkbox" id="use-unsplash" /> Unsplash stills (manual only, off by default)</label>
       <label class="toggle"><input type="checkbox" id="use-local" checked /> Use Ollama if available</label>
-      <label class="toggle"><input type="checkbox" id="use-local-models" checked /> Use local gen when ComfyUI is up</label>
+      <label class="toggle"><input type="checkbox" id="use-local-models" checked /> Use local GPU models if downloaded</label>
       <label>Local gen mode</label>
       <select id="local-mode">
         <option value="stock-first">Stock first (Pexels, then LTX hook)</option>
@@ -121,7 +121,7 @@
       <label class="toggle"><input type="checkbox" id="srt" checked /> Export sidecar SRT</label>
       <div class="cards-warn" id="cards-warn" hidden>
         <strong>Cards, not a real video.</strong>
-        No Pexels or Pixabay key, no local files, and ComfyUI is down. Accept will block unless you check cards ok.
+        No Pexels or Pixabay key and no local files. Instant pack still paints full-bleed art. Cards-only is last resort.
       </div>
       <label class="toggle"><input type="checkbox" id="allow-cards" /> Cards ok (slide-deck export)</label>
 
@@ -152,8 +152,9 @@
       <label>Imported music folder</label>
       <input id="music-folder" placeholder="C:\\Users\\you\\Music\\beds" />
       <p class="muted">Hook always opens. Logo watermark only after 1.5s. Music is bundled beds or your folder — never CapCut/TikTok tracks. Preferred TTS: Kokoro-FastAPI at http://127.0.0.1:8880/v1/audio/speech.</p>
-      <div class="kicker">ComfyUI sidecar</div>
-      <p class="muted">Talks to ComfyUI already running on this PC at 127.0.0.1:8188. Filenames are what Comfy already sees — not E:\\ paths. No new weights are downloaded.</p>
+      <details>
+      <summary class="kicker">Advanced: I already run ComfyUI</summary>
+      <p class="muted">Not required. The sold app uses native inference when models are Ready. This only talks to a sidecar you already started.</p>
       <label>ComfyUI URL</label>
       <input id="comfy-url" placeholder="http://127.0.0.1:8188" />
       <label>Local gen mode</label>
@@ -176,8 +177,9 @@
       <input id="qwen-ckpt" placeholder="qwen_image_fp8_e4m3fn.safetensors" />
       <label>Qwen Lightning LoRA</label>
       <input id="qwen-lora" placeholder="Qwen-Image-Lightning-8steps-V1.0.safetensors" />
+      </details>
       <div class="kicker">Model Manager</div>
-      <p class="muted">Optional in-process fallback if ComfyUI is down. Point at weights you already have. The installer never bundles diffusion models.</p>
+      <p class="muted">Optional GPU packs. Point at weights you already have, or use the first-run wizard. The installer never bundles diffusion models.</p>
       <label>modelsDir</label>
       <input id="models-dir" placeholder="D:\\weights or a folder you already have" />
       <button class="ghost" id="scan-models" type="button">Scan now</button>
@@ -185,6 +187,26 @@
       <button class="primary" id="save-settings">Save keys</button>
     </div>
   </div>
+  <div class="modal" id="wizard" hidden>
+    <div class="sheet wizard">
+      <h2>Set up ReelForge in one click</h2>
+      <p class="muted" id="wizard-hw">Detecting this PC…</p>
+      <div id="wizard-packs"></div>
+      <label>I already have models</label>
+      <div class="row">
+        <input id="wizard-folder" placeholder="E:\\ComfyUI_windows_portable_nvidia\\ComfyUI\\models" />
+        <button class="ghost" id="wizard-scan">Scan</button>
+      </div>
+      <div class="progress" id="wizard-progress"><div class="bar"><i id="wizard-bar"></i></div><div id="wizard-detail">One button. Progress, resume, checksum, pause/retry.</div></div>
+      <p class="error" id="wizard-error" hidden></p>
+      <div class="row">
+        <button class="ghost" id="wizard-skip">Skip — Instant pack</button>
+        <button class="ghost" id="wizard-ffmpeg">Download ffmpeg</button>
+        <button class="primary" id="wizard-go">Use recommended</button>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast" hidden></div>
   <script src="/static/app.js"></script>
 </body>
 </html>

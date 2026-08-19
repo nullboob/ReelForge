@@ -45,7 +45,7 @@ actor LocalAIClient {
         async let comfy = ComfyClient.shared.probe(url: UserDefaults.standard.string(forKey: "reelforge.comfyUrl"))
         let model = await ollama
         let kokoroUp = await kokoro
-        let tts = kokoroUp ? "Kokoro" : (SpeechService.edgeTTSCLI() != nil ? "edge-tts-cli" : "no VO")
+        let tts = kokoroUp ? "Kokoro" : (SpeechService.edgeTTSCLI() != nil ? "edge-tts-cli" : "basic voice")
         let modelsDir = UserDefaults.standard.string(forKey: "reelforge.modelsDir")
         let comfyStatus = await comfy
         return LocalAIStatus(

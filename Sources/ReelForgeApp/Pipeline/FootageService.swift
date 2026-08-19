@@ -36,17 +36,14 @@ struct FootageService {
         let hasStockKey = (usePexels && pexelsKey != nil) || (usePixabay && pixabayKey != nil)
         let comfySettings = ComfyClient.storedSettings()
         var comfyStatus = ComfyProbe()
-        if useLocalAI {
+        if useLocalAI, ProcessInfo.processInfo.environment["REELFORGE_COMFY_URL"] != nil {
             comfyStatus = await ComfyClient.shared.probe(url: comfyUrl)
-            if !comfyStatus.up {
-                warnings.append("ComfyUI is down at \(ComfyClient.baseURL(comfyUrl)) — skipped local gen.")
-            }
         }
         if usePexels, pexelsKey == nil {
             warnings.append("No Pexels key — stock video skipped unless Pixabay is set.")
         }
-        if !hasStockKey && localMedia.isEmpty && !comfyStatus.up {
-            warnings.append("CARDS ONLY: no Pexels/Pixabay key, no local files, and ComfyUI is down. This will look like a slide deck, not a finished Short.")
+        if !hasStockKey && localMedia.isEmpty {
+            warnings.append("No stock key and no local files. Instant pack uses painted full-bleed art unless a GPU model is Ready.")
         }
         if useUnsplash, unsplashKey == nil {
             warnings.append("No Unsplash key — stills skipped unless cards or local gen fill in.")
@@ -145,6 +142,23 @@ struct FootageService {
                 }
             }
 
+            let painted = workDir.appendingPathComponent("painted-\(index).png")
+            if let image = CardRenderer.render(
+                beat: beat,
+                preset: preset,
+                size: CGSize(width: size.width, height: size.height),
+                channelName: channelName
+            ),
+               let data = image.pngData(),
+               (try? data.write(to: painted)) != nil {
+                assignments[beat.id] = FootageAssignment(
+                    asset: AssetRef(id: "painted-\(index)", kind: .image, relativePath: painted.lastPathComponent, beatID: beat.id),
+                    fileURL: painted,
+                    credit: "Painted art"
+                )
+                warnings.append("Used painted full-bleed art for beat \(index + 1). Add a Pexels key for real B-roll.")
+                continue
+            }
             if let image = CardRenderer.render(
                 beat: beat,
                 preset: preset,
@@ -268,7 +282,7 @@ struct FootageService {
         let prompt = FootageLadder.renderPrompt(text: beat.text, styleSuffix: preset.aiImageStyleSuffix, aspect: aspect.rawValue)
         let seconds = FootageLadder.clampClipSeconds(beat.duration)
         let aspectLabel = aspect.rawValue
-        if comfyStatus.up {
+        if comfyStatus.up, ProcessInfo.processInfo.environment["REELFORGE_COMFY_URL"] != nil {
             if kind == .ltx || kind == .wan {
                 let destVideo = workDir.appendingPathComponent("\(kind.rawValue)-\(index).mp4")
                 await onProgress("ComfyUI \(kind.rawValue.uppercased()) for beat \(index + 1)")
@@ -308,6 +322,24 @@ struct FootageService {
         }
 
         let modelsDir = UserDefaults.standard.string(forKey: "reelforge.modelsDir")
+        if kind == .ltx || kind == .wan {
+            let destVideo = workDir.appendingPathComponent("\(kind.rawValue)-\(index).mp4")
+            await onProgress("Trying in-app \(kind.rawValue.uppercased()) for beat \(index + 1)")
+            if InferClient.generateVideo(
+                prompt: prompt,
+                to: destVideo,
+                aspect: aspectLabel,
+                seconds: seconds,
+                modelsDir: modelsDir
+            ), FileManager.default.fileExists(atPath: destVideo.path) {
+                assignments[beat.id] = FootageAssignment(
+                    asset: AssetRef(id: "\(kind.rawValue)-\(index)", kind: .video, relativePath: destVideo.lastPathComponent, beatID: beat.id),
+                    fileURL: destVideo,
+                    credit: FootageLadder.credit(for: kind)
+                )
+                return true
+            }
+        }
         if kind == .ltx {
             let destVideo = workDir.appendingPathComponent("ltx-\(index).mp4")
             await onProgress("Trying in-app LTX for beat \(index + 1)")

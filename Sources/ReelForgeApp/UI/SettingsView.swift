@@ -30,9 +30,9 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     keysSection
                     channelSection
-                    comfySection
                     modelManagerSection
                     servicesSection
+                    comfySection
                     attributionSection
                 }
             }
@@ -150,10 +150,9 @@ struct SettingsView: View {
             statusRow("Kokoro-82M", state.localStatus.kokoro, "http://127.0.0.1:8880")
             statusRow("edge-tts CLI", SpeechService.edgeTTSCLI() != nil, "user-installed, not vendored")
             statusRow("Ollama", state.localStatus.ollama, state.localStatus.ollamaModel ?? "http://127.0.0.1:11434")
-            statusRow("ComfyUI", state.localStatus.comfy, state.localStatus.comfyUrl)
             statusRow("ACE-Step", state.localStatus.aceStep, "http://127.0.0.1:7865")
             statusRow("Local whisper", state.localStatus.whisper, "http://127.0.0.1:9000")
-            Text("Preferred TTS: Kokoro-FastAPI at http://127.0.0.1:8880/v1/audio/speech. Then a user-installed edge-tts CLI. Never AVSpeech, SAPI, or vendored Piper/espeak. The core installer needs no diffusion weights.")
+            Text("Voice: Kokoro-FastAPI at :8880, then a user-installed edge-tts CLI, then the Mac’s basic voice. Piper/espeak are not vendored. GPU packs are optional.")
                 .font(.system(size: 11))
                 .foregroundStyle(RFTheme.muted)
             Button("Re-scan") { state.refreshStatus() }
@@ -162,9 +161,9 @@ struct SettingsView: View {
     }
 
     private var comfySection: some View {
+        DisclosureGroup("Advanced: I already run ComfyUI") {
         VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("ComfyUI sidecar")
-            Text("Talks to ComfyUI already running on this Mac at 127.0.0.1:8188. Filenames are what Comfy already sees — not full disk paths. No new weights are downloaded.")
+            Text("Not required. The sold app uses native inference when models are Ready. This only talks to a sidecar you already started.")
                 .font(.system(size: 11))
                 .foregroundStyle(RFTheme.muted)
             TextField("http://127.0.0.1:8188", text: $state.comfyUrl)
@@ -194,6 +193,7 @@ struct SettingsView: View {
             }
             .buttonStyle(GhostButtonStyle())
         }
+        }
     }
 
     private func chip(_ title: String, _ on: Bool) -> some View {
@@ -208,7 +208,7 @@ struct SettingsView: View {
     private var modelManagerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle("Model Manager")
-            Text("Creator/Studio optional. Point at weights you already have. ReelForge runs LTX and Qwen itself. The installer never bundles diffusion models.")
+            Text("Creator/Studio optional. Point at weights you already have, or use the first-run wizard. The installer never bundles diffusion models.")
                 .font(.system(size: 11))
                 .foregroundStyle(RFTheme.muted)
             HStack {

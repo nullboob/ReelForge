@@ -17,7 +17,8 @@ from reelforge.publish import thumbnail_headline
 
 
 def which_ffmpeg() -> str:
-    found = shutil.which("ffmpeg")
+    from reelforge.ffmpeg_bundle import which_ffmpeg as bundled
+    found = bundled()
     if not found:
         raise RuntimeError("ffmpeg is not on PATH. Install ffmpeg and try again.")
     return found
@@ -97,15 +98,36 @@ def compose(
     mp4 = export_dir / f"{stem}.mp4"
     if on_progress:
         on_progress("One-encode: cover, punch-in, grade, ass=, sidechaincompress")
+    burned = False
+    caption_warning = None
     try:
         compose_from_edl(document, work, mp4, burn_captions=burn_captions and bool(captions), on_progress=on_progress)
+        burned = burn_captions and bool(captions)
     except RuntimeError:
-        if on_progress:
-            on_progress("One-encode missed — per-clip fallback still uses sidechain duck")
-        _compose_legacy(
-            storyboard, preset, assignments, captions, voice_path, music_path, work, mp4,
-            width, height, style, channel, burn_captions,
-        )
+        if burn_captions and captions and style.get("renderer") != "off":
+            try:
+                if on_progress:
+                    on_progress("ASS burn missed — PNG caption overlay")
+                compose_from_edl(document, work, mp4, burn_captions=False, on_progress=on_progress)
+                burned = False
+                caption_warning = "Karaoke burn missed. PNG overlay or sidecar SRT still ships."
+            except RuntimeError:
+                if on_progress:
+                    on_progress("One-encode missed — per-clip fallback still uses sidechain duck")
+                _compose_legacy(
+                    storyboard, preset, assignments, captions, voice_path, music_path, work, mp4,
+                    width, height, style, channel, burn_captions,
+                )
+        else:
+            if on_progress:
+                on_progress("One-encode missed — per-clip fallback still uses sidechain duck")
+            _compose_legacy(
+                storyboard, preset, assignments, captions, voice_path, music_path, work, mp4,
+                width, height, style, channel, burn_captions,
+            )
+    if burn_captions and captions and not burned and not export_srt:
+        export_srt = True
+        caption_warning = caption_warning or "Captions could not burn. A sidecar SRT is next to the MP4."
 
     thumbs: list[str] = []
     headlines = [
@@ -131,6 +153,7 @@ def compose(
         "thumbs": thumbs,
         "thumb": str(primary) if thumbs else None,
         "srt": str(srt_path) if srt_path else None,
+        "captionWarning": caption_warning,
     }
 
 

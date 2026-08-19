@@ -55,9 +55,10 @@ class Director:
         return {
             "kokoro": speech.probe_kokoro(),
             "ollama": speech.probe_ollama(),
-            "ffmpeg": bool(__import__("shutil").which("ffmpeg")),
+            "ffmpeg": bool(__import__("reelforge.ffmpeg_bundle", fromlist=["which_ffmpeg"]).which_ffmpeg()),
             "pexels": bool(settings.get("pexelsKey")),
-            "ttsEngine": "Kokoro" if speech.probe_kokoro() else ("edge-tts-cli" if speech.probe_edge_tts_cli() else "no VO"),
+            "ttsEngine": "Kokoro" if speech.probe_kokoro() else ("edge-tts-cli" if speech.probe_edge_tts_cli() else ("basic voice" if speech.probe_basic_voice() else "no VO")),
+            "setupComplete": bool(settings.get("setupComplete")),
             "pixabay": bool(settings.get("pixabayKey")),
             "stockReady": bool(settings.get("pexelsKey") or settings.get("pixabayKey")),
             "captionStyles": caption_styles.all_styles(),
@@ -192,8 +193,11 @@ class Director:
         try:
             return self._compose(script, board, cues, preset, settings, {**(pending.get("payload") or {}), **payload})
         except Exception as exc:
-            self.progress = {"detail": str(exc), "fraction": 0.4, "busy": False, "failed": True}
-            raise
+            from reelforge.errors import human, log
+            message = human(exc)
+            log(f"accept failed: {exc}")
+            self.progress = {"detail": message, "fraction": 0.4, "busy": False, "failed": True}
+            raise RuntimeError(message) from exc
 
     def _compose(
         self,

@@ -19,9 +19,11 @@ Marketing site: [`site/index.html`](site/index.html)
 
 **Studio/Creator extra:** an in-app Model Manager. The user downloads or points at existing weights. ReelForge runs LTX and Qwen itself. We do not ship a node-graph sidecar or 80GB of weights.
 
+**Ship:** small Windows `.exe` / Mac `.app`. First launch is a one-click wizard. Instant pack works with **zero** models. See [`docs/SHIP.md`](docs/SHIP.md). Linux CI does not produce those binaries.
+
 ## Windows (install and test today)
 
-Python 3.12, Node is unused, ffmpeg on PATH. No Xcode.
+Shipped product: run `windows/build-windows.ps1` **on a Windows box** (PyInstaller onedir + optional Inno). Dev loop:
 
 ```bat
 cd windows
@@ -30,9 +32,9 @@ py -3.12 -m venv .venv
 .venv\Scripts\python -m reelforge
 ```
 
-That opens a desktop window (pywebview). If WebView2 fails, it opens the local UI in your browser. Pick Viral Hook, type a topic, Draft, Accept. The MP4 lands in `%USERPROFILE%\Videos\ReelForge\`.
+That opens a desktop window (pywebview). If WebView2 fails, it opens the local UI in your browser. First launch shows **Set up ReelForge in one click**. Skip Instant, then Viral Hook → Draft → Accept. The MP4 lands in `%USERPROFILE%\Videos\ReelForge\`.
 
-Windows TTS is Kokoro-FastAPI `:8880` if it is up, else **edge-tts**, else Windows SAPI (`pyttsx3`). Piper is not embedded. Stock is Pexels-first, Pixabay second; Unsplash is off. Music is a programmatic original-safe bed. Core ships with no diffusion weights.
+Windows TTS is Kokoro-FastAPI `:8880` if it is up, else **edge-tts** CLI, else OS **basic voice** (SAPI). Piper is not embedded. Stock is Pexels-first, Pixabay second; Unsplash is off. Missing ffmpeg → one-click LGPL into AppData. Core ships with no diffusion weights.
 
 ## macOS requirements
 
@@ -40,7 +42,7 @@ Windows TTS is Kokoro-FastAPI `:8880` if it is up, else **edge-tts**, else Windo
 - Xcode 15+
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen)
 
-Nothing optional is required to export a playable video. AVSpeech, styled cards, and bundled music beds always work.
+Nothing optional is required to export a playable video. Instant pack uses stock or painted art, captions, and Kokoro / edge-tts / **basic voice**. GPU packs are wizard upgrades.
 
 ## Open-source / free stack
 
@@ -48,7 +50,7 @@ Nothing optional is required to export a playable video. AVSpeech, styled cards,
 | --- | --- | --- | --- |
 | Script / SEO | Ollama at `localhost:11434` | Local LLM. Template writer if down. | Optional |
 | TTS | **Kokoro-FastAPI** `http://127.0.0.1:8880/v1/audio/speech` | Apache 2.0, OpenAI-compatible. Named voices, per-project lock. | Optional |
-| TTS | macOS `AVSpeechSynthesizer` | Always the fallback. Piper is **not** embedded (piper1-gpl is GPL-3.0). | Built-in |
+| TTS | OS **basic voice** (`say` / SAPI) | Last resort, labeled in the UI. Piper is **not** embedded (piper1-gpl is GPL-3.0). | Built-in |
 | Voiceover | User-dropped WAV/M4A/MP3 | Wins over every TTS engine | Optional |
 | Captions | Duration-align from script | Word-timed cards, karaoke / pop / lower-third | Built-in |
 | Captions | Whisper HTTP at `:9000` / WhisperKit if present | Used only when a real VO file exists | Optional |
@@ -63,9 +65,9 @@ Footage order per beat, never stall:
 
 1. User local video / images
 2. **Pexels Videos API** (`Authorization` header, `/videos/search`, page 2+ to skip first-page generic office/nature/city-aerial). Per-channel `video.id` blacklist. Pixabay second.
-3. In-app LTX hook clip + Qwen stills (Ken Burns) if Model Manager marked those weights Ready
-4. Unsplash stills only if you explicitly enable the manual toggle
-5. Generated gradient / type cards — only if **cards ok**
+3. In-app LTX hook clip + Qwen stills (Ken Burns) if the wizard marked those weights Ready
+4. Painted full-bleed art (Instant offline)
+5. Styled cards only with a warning — export still finishes
 
 Picture rules: first beat **must** be a hook (builder fails otherwise). First 1.5s = on-screen claim + VO start + picture change. No logo open. Captions stay in the Shorts safe zone (~15% top and bottom, right rail clear). Viral Hook is 3–6 words/line. Music ducks 8–12 dB. Thumbnails are 3–6 huge words. Title promise appears in title + thumb + first 3s VO.
 

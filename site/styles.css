@@ -35,7 +35,7 @@ body::before {
 a { color: inherit; }
 img { max-width: 100%; }
 .wrap { width: min(var(--max), calc(100% - 40px)); margin: 0 auto; }
-.nav, .hero, .grid, .steps, .presets, .trust, .pricing, .faq, footer { position: relative; }
+.nav, .hero, .grid, .steps, .presets, .trust, .pricing, .faq, .proof, .problem, footer { position: relative; }
 
 .nav {
   display: flex;
@@ -185,12 +185,80 @@ h1 {
   justify-content: center;
 }
 
-.problem, .how, .features, .presets, .trust, .pricing, .faq, .waitlist {
+.problem, .how, .features, .presets, .trust, .pricing, .faq, .waitlist, .proof {
   padding: 72px 0 10px;
 }
+.problem-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+.problem-grid article {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 20px;
+}
+.problem-grid h3 { margin: 0 0 8px; font-size: 20px; }
+.problem-grid p { color: var(--muted); margin: 0; }
+.phone { display: flex; flex-direction: column; align-items: center; }
+.phone-bezel {
+  width: min(280px, 72vw);
+  padding: 12px;
+  border-radius: 36px;
+  background: #0a0a0e;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.phone-screen {
+  position: relative;
+  aspect-ratio: 9 / 16;
+  border-radius: 26px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.55)),
+    linear-gradient(160deg, #5a3224 0%, #12080c 58%, #1a1014 100%);
+}
+.demo-loop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; }
+.demo-grade {
+  position: absolute; inset: 0;
+  background: radial-gradient(120% 80% at 50% 20%, transparent, rgba(0,0,0,0.45));
+  animation: ken 8s ease-in-out infinite alternate;
+}
+@keyframes ken { from { transform: scale(1); } to { transform: scale(1.08); } }
+.demo-kicker {
+  position: absolute; top: 18px; left: 16px; right: 16px;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 10px; letter-spacing: 0.18em; color: var(--gold);
+}
+.demo-line, .demo-sub {
+  position: absolute; left: 16px; right: 16px;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-weight: 800; text-align: center;
+  text-shadow: 0 2px 0 #000, 0 0 12px rgba(0,0,0,0.6);
+}
+.demo-line { bottom: 88px; font-size: 28px; line-height: 1.05; }
+.demo-sub { bottom: 58px; font-size: 14px; color: #f6f1e8; }
+.demo-bar {
+  position: absolute; left: 16px; right: 16px; bottom: 22px;
+  height: 3px; background: rgba(255,255,255,0.2); border-radius: 99px;
+}
+.demo-bar i {
+  display: block; height: 100%; width: 38%;
+  background: var(--gold);
+  animation: grow 3.2s linear infinite;
+}
+@keyframes grow { from { width: 8%; } to { width: 86%; } }
+.demo-caption { color: var(--muted); font-size: 12px; text-align: center; margin: 12px 0 0; max-width: 28em; }
+.legal { padding: 28px 0 8px; color: var(--muted); font-size: 14px; }
+.legal h2 { font-size: 18px; color: var(--ink); }
+.foot-links { display: flex; gap: 16px; }
+.foot-links a { text-decoration: none; }
+.foot-links a:hover { color: var(--gold); }
 h2 { font-size: clamp(28px, 4vw, 44px); letter-spacing: -0.03em; margin: 0 0 12px; }
 .sub { color: var(--muted); max-width: 40em; margin: 0 0 32px; }
-.problem p { font-size: 22px; max-width: 18em; }
+.problem > p { font-size: 22px; max-width: 18em; }
 
 .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .step, .feat, .price, .preset {
@@ -270,9 +338,12 @@ footer {
 }
 
 @media (max-width: 900px) {
-  .hero, .steps, .prices, .trust-row, .mock-body { grid-template-columns: 1fr; }
+  .hero, .steps, .prices, .trust-row, .mock-body, .problem-grid { grid-template-columns: 1fr; }
   .grid { grid-template-columns: 1fr; }
   .nav-links { display: none; }
   .mock-body { min-height: 0; }
   .col:first-child, .col:last-child { display: none; }
+  footer { flex-direction: column; }
+  h1 { font-size: clamp(36px, 11vw, 56px); }
+  .hero { padding: 28px 0 24px; gap: 28px; }
 }

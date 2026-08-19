@@ -22,6 +22,7 @@ DEFAULTS: dict[str, Any] = {
     "voiceSpeed": 1.0,
     "modelsDir": "",
     "useLocalModels": True,
+    "setupComplete": False,
     "comfyUrl": "http://127.0.0.1:8188",
     "localMode": "stock-first",
     "ltxCkpt": "ltx-2.3-22b-distilled.safetensors",

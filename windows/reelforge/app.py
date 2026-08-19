@@ -90,6 +90,55 @@ def comfy_status() -> dict:
     return comfy.probe(settings.get("comfyUrl"))
 
 
+@app.get("/api/setup")
+def get_setup() -> dict:
+    from reelforge import setup
+    return setup.wizard_state()
+
+
+@app.post("/api/setup/skip")
+def skip_setup() -> dict:
+    from reelforge import setup
+    setup.mark_complete()
+    return setup.wizard_state()
+
+
+@app.post("/api/setup/download")
+def setup_download(payload: dict) -> dict:
+    from reelforge import setup
+    from reelforge.errors import human
+    pack = payload.get("pack") or "instant"
+    if pack == "instant":
+        setup.mark_complete()
+        return {"pack": "instant", "files": [], "ok": True}
+    try:
+        result = setup.download_pack(pack)
+        setup.mark_complete()
+        return {**result, "ok": True}
+    except Exception as exc:
+        raise HTTPException(500, human(exc)) from exc
+
+
+@app.post("/api/setup/scan")
+def setup_scan(payload: dict) -> dict:
+    from reelforge import models
+    from reelforge.settings_store import save
+    folder = payload.get("modelsDir") or ""
+    if folder:
+        save({"modelsDir": folder, "setupComplete": True})
+    return models.scan(folder or None)
+
+
+@app.post("/api/ffmpeg")
+def ensure_ffmpeg() -> dict:
+    from reelforge import ffmpeg_bundle
+    from reelforge.errors import human
+    try:
+        return ffmpeg_bundle.ensure()
+    except Exception as exc:
+        raise HTTPException(500, human(exc)) from exc
+
+
 @app.post("/api/models")
 def post_models(payload: dict) -> dict:
     if "modelsDir" in payload:

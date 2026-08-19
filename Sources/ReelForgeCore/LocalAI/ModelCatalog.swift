@@ -86,7 +86,7 @@ public enum ModelCatalog {
                 path: match?.path
             )
         }
-        let videoReady = slots.contains { $0.id == "ltx-distilled" && $0.ready }
+        let videoReady = slots.contains { ($0.id == "ltx-distilled" || $0.id == "ltx-gguf") && $0.ready }
         let imageReady = slots.contains { $0.id == "qwen-image" && $0.ready }
         return ModelScan(
             slots: slots,

@@ -73,6 +73,29 @@ def render_card(
     return dest
 
 
+def render_painted(
+    text: str,
+    dest: Path,
+    size: tuple[int, int],
+    preset: dict[str, Any],
+    channel_name: str = "",
+) -> Path:
+    """Full-bleed painted still — vignette + grain, never a letterboxed slide."""
+    render_card(text, dest, size, preset, channel_name, watermark=False)
+    image = Image.open(dest).convert("RGB")
+    width, height = image.size
+    wash = Image.new("RGB", image.size, (18, 10, 12))
+    image = Image.blend(image, wash, 0.18)
+    vignette = Image.new("L", image.size, 0)
+    ImageDraw.Draw(vignette).ellipse((-width * 0.15, -height * 0.08, width * 1.15, height * 1.08), fill=220)
+    image = Image.composite(image, Image.blend(image, wash, 0.45), vignette)
+    noise = Image.effect_noise((max(8, width // 4), max(8, height // 4)), 16).resize(image.size)
+    image = Image.blend(image, Image.merge("RGB", (noise, noise, noise)), 0.07)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    image.save(dest, "PNG")
+    return dest
+
+
 def render_thumbnail(headline: str, dest: Path, preset: dict[str, Any], channel: dict[str, Any]) -> Path:
     width, height = 1280, 720
     colors = [channel.get("primaryHex") or "#FF4D6D", channel.get("accentHex") or "#E8C39A"]

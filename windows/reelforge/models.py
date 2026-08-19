@@ -95,7 +95,7 @@ def scan(models_dir: str | None = None, roots: list[Path] | None = None) -> dict
             "ready": match is not None,
             "path": str(match) if match else None,
         })
-    video_ready = any(item["id"] == "ltx-distilled" and item["ready"] for item in slots)
+    video_ready = any(item["id"] in {"ltx-distilled", "ltx-gguf"} and item["ready"] for item in slots)
     image_ready = any(item["id"] == "qwen-image" and item["ready"] for item in slots)
     return {
         "slots": slots,

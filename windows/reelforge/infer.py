@@ -50,7 +50,15 @@ def generate_video(
     unload("image")
     try:
         return _ltx_video(prompt, dest, width, height, frames, catalog)
-    except Exception:
+    except Exception as exc:
+        if _is_oom(exc):
+            unload()
+            try:
+                small_w, small_h = aligned_size(max(512, width // 2), max(896, height // 2))
+                return _ltx_video(prompt, dest, small_w, small_h, max(9, frames // 2), catalog)
+            except Exception:
+                unload()
+                return False
         return False
 
 
@@ -71,7 +79,15 @@ def generate_image(
     unload("video")
     try:
         return _qwen_image(prompt, dest, width, height, catalog)
-    except Exception:
+    except Exception as exc:
+        if _is_oom(exc):
+            unload()
+            try:
+                small_w, small_h = aligned_size(max(512, width // 2), max(896, height // 2))
+                return _qwen_image(prompt, dest, small_w, small_h, catalog)
+            except Exception:
+                unload()
+                return False
         return False
 
 
@@ -186,6 +202,11 @@ def _write_video_frames(frames: list, dest: Path) -> bool:
         first.save(path)
         return path.exists()
     return False
+
+
+def _is_oom(exc: BaseException) -> bool:
+    text = str(exc).lower()
+    return "out of memory" in text or ("cuda" in text and "memory" in text)
 
 
 def _have_torch() -> bool:
